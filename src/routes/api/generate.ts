@@ -63,7 +63,10 @@ export const Route = createFileRoute("/api/generate")({
         const data = (await res.json()) as {
           choices?: { message?: { content?: string } }[];
         };
-        const content = data.choices?.[0]?.message?.content ?? "";
+        let content = data.choices?.[0]?.message?.content ?? "";
+        content = content.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+        const idx = content.indexOf("<!DOCTYPE");
+        if (idx > 0) content = content.slice(idx);
 
         return new Response(JSON.stringify({ content }), {
           headers: { "content-type": "application/json" },
