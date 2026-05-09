@@ -33,7 +33,7 @@ export const Route = createFileRoute("/api/generate")({
               {
                 role: "system",
                 content:
-                  "Ti si Nova, AI asistent koji u 4-6 kratkih natuknica predlaže strukturu web stranice na hrvatskom: sekcije, ton i CTA. Bez markdowna, bez uvoda — samo natuknice odvojene znakom •.",
+                  "Ti si Nova — generiraš KOMPLETNU, samostalnu web stranicu kao jedan HTML dokument na hrvatskom jeziku. Pravila: 1) Vrati ISKLJUČIVO sirovi HTML počevši s <!DOCTYPE html>, bez markdown ograda, bez ``` blokova, bez objašnjenja. 2) Koristi Tailwind preko <script src='https://cdn.tailwindcss.com'></script> u <head>. 3) Uključi Google Fonts (npr. Inter + Instrument Serif). 4) Moderan, prozračan dizajn s hero sekcijom, značajkama, CTA i footerom. 5) Realan sadržaj prilagođen korisničkom upitu (bez 'Lorem ipsum'). 6) Slike preko https://images.unsplash.com/... ili emoji. 7) Responsive.",
               },
               { role: "user", content: prompt },
             ],
@@ -63,7 +63,10 @@ export const Route = createFileRoute("/api/generate")({
         const data = (await res.json()) as {
           choices?: { message?: { content?: string } }[];
         };
-        const content = data.choices?.[0]?.message?.content ?? "";
+        let content = data.choices?.[0]?.message?.content ?? "";
+        content = content.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+        const idx = content.indexOf("<!DOCTYPE");
+        if (idx > 0) content = content.slice(idx);
 
         return new Response(JSON.stringify({ content }), {
           headers: { "content-type": "application/json" },

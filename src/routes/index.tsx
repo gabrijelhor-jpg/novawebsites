@@ -117,16 +117,34 @@ function Index() {
             </div>
           </div>
 
-          {(result || error) && (
-            <div className="max-w-2xl mx-auto mt-6 text-left bg-card border border-border rounded-2xl p-6 shadow-soft">
-              {error ? (
-                <p className="text-sm text-destructive">{error}</p>
-              ) : (
-                <>
-                  <p className="text-xs uppercase tracking-widest text-accent mb-3">Nacrt stranice</p>
-                  <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{result}</p>
-                </>
-              )}
+          {error && (
+            <div className="max-w-2xl mx-auto mt-6 text-left bg-card border border-destructive/40 rounded-2xl p-6 shadow-soft">
+              <p className="text-sm text-destructive">{error}</p>
+            </div>
+          )}
+          {result && (
+            <div className="max-w-5xl mx-auto mt-8 text-left bg-card border border-border rounded-3xl p-3 shadow-glow">
+              <div className="flex items-center justify-between px-3 py-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-destructive/60" />
+                  <span className="w-3 h-3 rounded-full bg-accent/60" />
+                  <span className="w-3 h-3 rounded-full bg-primary/40" />
+                </div>
+                <span className="text-xs text-muted-foreground">Nova preview</span>
+                <a
+                  href={`data:text/html;charset=utf-8,${encodeURIComponent(result)}`}
+                  download="nova-stranica.html"
+                  className="text-xs text-accent hover:underline"
+                >
+                  Preuzmi HTML
+                </a>
+              </div>
+              <iframe
+                title="Generirana stranica"
+                srcDoc={result}
+                className="w-full h-[600px] rounded-2xl bg-white border border-border"
+                sandbox="allow-scripts"
+              />
             </div>
           )}
 
