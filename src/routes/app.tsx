@@ -31,6 +31,17 @@ function AppPage() {
 
   useEffect(() => {
     if (!user) return;
+    try {
+      const seed = sessionStorage.getItem("nova:firstPrompt");
+      if (seed) {
+        setPrompt(seed);
+        sessionStorage.removeItem("nova:firstPrompt");
+      }
+    } catch {}
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
     supabase
       .from("generations")
       .select("*")
