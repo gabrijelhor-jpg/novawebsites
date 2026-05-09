@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowUp, Sparkles, Zap, Code2, Globe, Wand2, Check, Github, Twitter } from "lucide-react";
+import { ArrowUp, Sparkles, Zap, Code2, Globe, Wand2, Check, Github, Twitter, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -15,6 +15,33 @@ const prompts = [
 
 function Index() {
   const [prompt, setPrompt] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState("");
+  const [error, setError] = useState("");
+
+  const generate = async () => {
+    if (!prompt.trim() || loading) return;
+    setLoading(true);
+    setError("");
+    setResult("");
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Nešto je pošlo po krivu.");
+      } else {
+        setResult(data.content ?? "");
+      }
+    } catch {
+      setError("Greška u mreži.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -66,18 +93,42 @@ function Index() {
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") generate();
+                }}
                 placeholder="Opiši svoju ideju... npr. 'Stranica za jogu studio s rasporedom satova'"
                 rows={3}
                 className="w-full resize-none bg-transparent px-5 pt-4 pb-2 outline-none text-foreground placeholder:text-muted-foreground"
               />
               <div className="flex items-center justify-between px-3 pb-2">
                 <span className="text-xs text-muted-foreground">⌘ + Enter za pokretanje</span>
-                <button className="w-10 h-10 rounded-full bg-gradient-accent grid place-items-center shadow-glow hover:scale-105 transition">
-                  <ArrowUp className="w-5 h-5 text-accent-foreground" />
+                <button
+                  onClick={generate}
+                  disabled={loading || !prompt.trim()}
+                  className="w-10 h-10 rounded-full bg-gradient-accent grid place-items-center shadow-glow hover:scale-105 transition disabled:opacity-50 disabled:hover:scale-100"
+                >
+                  {loading ? (
+                    <Loader2 className="w-5 h-5 text-accent-foreground animate-spin" />
+                  ) : (
+                    <ArrowUp className="w-5 h-5 text-accent-foreground" />
+                  )}
                 </button>
               </div>
             </div>
           </div>
+
+          {(result || error) && (
+            <div className="max-w-2xl mx-auto mt-6 text-left bg-card border border-border rounded-2xl p-6 shadow-soft">
+              {error ? (
+                <p className="text-sm text-destructive">{error}</p>
+              ) : (
+                <>
+                  <p className="text-xs uppercase tracking-widest text-accent mb-3">Nacrt stranice</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{result}</p>
+                </>
+              )}
+            </div>
+          )}
 
           <div className="flex flex-wrap justify-center gap-2 mt-6">
             {prompts.map((p) => (
