@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { ArrowUp, Sparkles, Loader2, Plus, LogOut, Download, Trash2, Pencil } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowUp, Sparkles, Loader2, Plus, LogOut, Download, Trash2, Pencil, Bot, User as UserIcon, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -16,6 +16,12 @@ type Generation = {
   created_at: string;
 };
 
+type ChatMessage = {
+  role: "user" | "assistant";
+  text: string;
+  needsInfo?: boolean;
+};
+
 function AppPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -24,6 +30,10 @@ function AppPage() {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [chats, setChats] = useState<Record<string, ChatMessage[]>>({});
+  // chats key: generation id, or "__new" for the not-yet-saved draft
+  const NEW_KEY = "__new";
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate({ to: "/auth" });
@@ -52,52 +62,95 @@ function AppPage() {
   }, [user]);
 
   const active = items.find((i) => i.id === activeId) ?? null;
+  const chatKey = activeId ?? NEW_KEY;
+  const messages = chats[chatKey] ?? [];
+
+  useEffect(() => {
+    chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages.length, loading]);
+
+  const pushMessage = (key: string, msg: ChatMessage) => {
+    setChats((prev) => ({ ...prev, [key]: [...(prev[key] ?? []), msg] }));
+  };
 
   const generate = async () => {
     if (!prompt.trim() || loading || !user) return;
+    const userText = prompt.trim();
     setLoading(true);
     setError("");
     const isEdit = active !== null;
+    const startKey = chatKey;
+    pushMessage(startKey, { role: "user", text: userText });
+    setPrompt("");
+
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt,
+          prompt: userText,
           existingHtml: isEdit ? active!.html : undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Greška");
+        pushMessage(startKey, { role: "assistant", text: data.error ?? "Greška" });
         return;
       }
-      const html = data.content as string;
+
+      const aiMessage: string = data.message || (data.html ? "Gotovo." : "");
+      const html: string | null = data.html;
+      const needsInfo: string | null = data.needsInfo;
+
+      if (needsInfo && !html) {
+        pushMessage(startKey, {
+          role: "assistant",
+          text: `${aiMessage}\n\n${needsInfo}`,
+          needsInfo: true,
+        });
+        return;
+      }
+
+      if (!html) {
+        pushMessage(startKey, { role: "assistant", text: aiMessage || "Nisam mogao generirati stranicu." });
+        return;
+      }
 
       if (isEdit && active) {
         const { data: updated, error } = await supabase
           .from("generations")
-          .update({ html, prompt: active.prompt + "\n\n→ " + prompt })
+          .update({ html, prompt: active.prompt + "\n\n→ " + userText })
           .eq("id", active.id)
           .select()
           .single();
         if (error) throw error;
         setItems((prev) => prev.map((i) => (i.id === active.id ? (updated as Generation) : i)));
+        pushMessage(startKey, { role: "assistant", text: aiMessage });
       } else {
-        const title = prompt.slice(0, 60);
+        const title = userText.slice(0, 60);
         const { data: inserted, error } = await supabase
           .from("generations")
-          .insert({ user_id: user.id, title, prompt, html })
+          .insert({ user_id: user.id, title, prompt: userText, html })
           .select()
           .single();
         if (error) throw error;
         const row = inserted as Generation;
         setItems((prev) => [row, ...prev]);
+        // migrate draft chat onto the new generation id
+        setChats((prev) => {
+          const draft = prev[NEW_KEY] ?? [];
+          const next = { ...prev };
+          delete next[NEW_KEY];
+          next[row.id] = [...draft, { role: "assistant", text: aiMessage }];
+          return next;
+        });
         setActiveId(row.id);
       }
-      setPrompt("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Greška");
+      const msg = e instanceof Error ? e.message : "Greška";
+      setError(msg);
+      pushMessage(startKey, { role: "assistant", text: msg });
     } finally {
       setLoading(false);
     }
@@ -112,6 +165,11 @@ function AppPage() {
   const remove = async (id: string) => {
     await supabase.from("generations").delete().eq("id", id);
     setItems((prev) => prev.filter((i) => i.id !== id));
+    setChats((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     if (activeId === id) setActiveId(null);
   };
 
@@ -199,7 +257,7 @@ function AppPage() {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col min-w-0">
         <div className="border-b border-border px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-sm text-muted-foreground">
@@ -222,62 +280,122 @@ function AppPage() {
           )}
         </div>
 
-        <div className="flex-1 overflow-hidden bg-secondary/40 p-4">
-          {active ? (
-            <iframe
-              title="Preview"
-              srcDoc={active.html}
-              className="w-full h-full rounded-2xl bg-white border border-border shadow-soft"
-              sandbox="allow-scripts"
-            />
-          ) : (
-            <div className="h-full grid place-items-center">
-              <div className="text-center max-w-md">
-                <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gradient-accent grid place-items-center shadow-glow">
-                  <Sparkles className="w-6 h-6 text-accent-foreground" />
+        {/* Split: chat + preview */}
+        <div className="flex-1 flex min-h-0">
+          {/* Chat panel */}
+          <div className="w-[380px] border-r border-border flex flex-col bg-card/20 min-h-0">
+            <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+              {messages.length === 0 && !loading && (
+                <div className="text-center text-xs text-muted-foreground py-8">
+                  {active
+                    ? "Reci Novi što želiš promijeniti."
+                    : "Opiši svoju ideju — Nova će ti odgovoriti i izraditi stranicu."}
                 </div>
-                <h2 className="text-3xl mb-2">Opiši svoju ideju</h2>
-                <p className="text-sm text-muted-foreground">
-                  Nova će izraditi cijelu stranicu. Klikni na neku iz povijesti da nastaviš s
-                  uređivanjem.
-                </p>
-              </div>
+              )}
+              {messages.map((m, i) => (
+                <div key={i} className={`flex gap-2 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
+                  <div
+                    className={`w-7 h-7 shrink-0 rounded-full grid place-items-center ${
+                      m.role === "user"
+                        ? "bg-secondary text-foreground"
+                        : "bg-gradient-accent text-accent-foreground"
+                    }`}
+                  >
+                    {m.role === "user" ? (
+                      <UserIcon className="w-3.5 h-3.5" />
+                    ) : (
+                      <Bot className="w-3.5 h-3.5" />
+                    )}
+                  </div>
+                  <div
+                    className={`max-w-[280px] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap leading-relaxed ${
+                      m.role === "user"
+                        ? "bg-primary text-primary-foreground rounded-tr-sm"
+                        : m.needsInfo
+                          ? "bg-amber-500/10 border border-amber-500/30 text-foreground rounded-tl-sm"
+                          : "bg-secondary text-foreground rounded-tl-sm"
+                    }`}
+                  >
+                    {m.needsInfo && (
+                      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-amber-600 dark:text-amber-400 mb-1">
+                        <AlertCircle className="w-3 h-3" /> Trebam info
+                      </div>
+                    )}
+                    {m.text}
+                  </div>
+                </div>
+              ))}
+              {loading && (
+                <div className="flex gap-2">
+                  <div className="w-7 h-7 shrink-0 rounded-full grid place-items-center bg-gradient-accent text-accent-foreground">
+                    <Bot className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="bg-secondary rounded-2xl rounded-tl-sm px-3.5 py-2 text-sm flex items-center gap-2">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span className="text-muted-foreground">Nova razmišlja…</span>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        <div className="border-t border-border p-4">
-          <div className="max-w-3xl mx-auto bg-card border border-border rounded-2xl shadow-soft p-2">
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") generate();
-              }}
-              placeholder={
-                active
-                  ? "Što da promijenim? npr. 'dodaj sekciju s recenzijama, promijeni boju u plavu'"
-                  : "Opiši stranicu... npr. 'Stranica za jogu studio s rasporedom satova'"
-              }
-              rows={2}
-              className="w-full resize-none bg-transparent px-4 pt-3 pb-1 outline-none text-sm placeholder:text-muted-foreground"
-            />
-            <div className="flex items-center justify-between px-2 pb-1">
-              <span className="text-[11px] text-muted-foreground">⌘ + Enter</span>
-              <button
-                onClick={generate}
-                disabled={loading || !prompt.trim()}
-                className="w-9 h-9 rounded-full bg-gradient-accent grid place-items-center shadow-glow hover:scale-105 transition disabled:opacity-50 disabled:hover:scale-100"
-              >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 text-accent-foreground animate-spin" />
-                ) : (
-                  <ArrowUp className="w-4 h-4 text-accent-foreground" />
-                )}
-              </button>
+            <div className="border-t border-border p-3">
+              <div className="bg-card border border-border rounded-2xl shadow-soft p-2">
+                <textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") generate();
+                  }}
+                  placeholder={
+                    active
+                      ? "Što da promijenim?"
+                      : "Opiši stranicu…"
+                  }
+                  rows={2}
+                  className="w-full resize-none bg-transparent px-3 pt-2 pb-1 outline-none text-sm placeholder:text-muted-foreground"
+                />
+                <div className="flex items-center justify-between px-1.5 pb-0.5">
+                  <span className="text-[11px] text-muted-foreground">⌘ + Enter</span>
+                  <button
+                    onClick={generate}
+                    disabled={loading || !prompt.trim()}
+                    className="w-8 h-8 rounded-full bg-gradient-accent grid place-items-center shadow-glow hover:scale-105 transition disabled:opacity-50 disabled:hover:scale-100"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-4 h-4 text-accent-foreground animate-spin" />
+                    ) : (
+                      <ArrowUp className="w-4 h-4 text-accent-foreground" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              {error && <p className="text-xs text-destructive text-center mt-2">{error}</p>}
             </div>
           </div>
-          {error && <p className="text-xs text-destructive text-center mt-2">{error}</p>}
+
+          {/* Preview panel */}
+          <div className="flex-1 overflow-hidden bg-secondary/40 p-4 min-w-0">
+            {active ? (
+              <iframe
+                title="Preview"
+                srcDoc={active.html}
+                className="w-full h-full rounded-2xl bg-white border border-border shadow-soft"
+                sandbox="allow-scripts"
+              />
+            ) : (
+              <div className="h-full grid place-items-center">
+                <div className="text-center max-w-md">
+                  <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gradient-accent grid place-items-center shadow-glow">
+                    <Sparkles className="w-6 h-6 text-accent-foreground" />
+                  </div>
+                  <h2 className="text-3xl mb-2">Opiši svoju ideju</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Nova će ti odgovoriti u chatu i izraditi cijelu stranicu.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>
