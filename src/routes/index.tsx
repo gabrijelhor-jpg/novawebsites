@@ -253,6 +253,9 @@ function Index() {
             <span className="text-sm text-muted-foreground ml-2">© 2026</span>
           </div>
           <div className="flex items-center gap-4 text-muted-foreground">
+            <Link to="/admin" className="hover:text-foreground transition flex items-center gap-1 text-xs">
+              <Shield className="w-3.5 h-3.5" /> Admin
+            </Link>
             <a href="#" className="hover:text-foreground transition"><Twitter className="w-4 h-4" /></a>
             <a href="#" className="hover:text-foreground transition"><Github className="w-4 h-4" /></a>
           </div>
