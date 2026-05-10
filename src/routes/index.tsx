@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { ArrowUp, Sparkles, Zap, Code2, Globe, Wand2, Github, Twitter } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowUp, Sparkles, Zap, Code2, Globe, Wand2, Github, Twitter, Shield, PowerOff } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   component: Index,
