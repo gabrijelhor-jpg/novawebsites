@@ -44,6 +44,24 @@ export type Database = {
         }
         Relationships: []
       }
+      site_settings: {
+        Row: {
+          enabled: boolean
+          id: number
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          id?: number
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
