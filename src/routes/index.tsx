@@ -19,6 +19,16 @@ function Index() {
   const [prompt, setPrompt] = useState("");
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [siteEnabled, setSiteEnabled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from("site_settings")
+      .select("enabled")
+      .eq("id", 1)
+      .single()
+      .then(({ data }) => setSiteEnabled(data?.enabled ?? true));
+  }, []);
 
   const start = () => {
     if (prompt.trim()) {
@@ -28,6 +38,25 @@ function Index() {
     }
     navigate({ to: user ? "/app" : "/auth" });
   };
+
+  if (siteEnabled === false) {
+    return (
+      <div className="min-h-screen grid place-items-center bg-background text-foreground p-6">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-destructive/10 border border-destructive/30 grid place-items-center">
+            <PowerOff className="w-7 h-7 text-destructive" />
+          </div>
+          <h1 className="text-3xl mb-3">Stranica je trenutno ugašena</h1>
+          <p className="text-muted-foreground mb-6">
+            Vraćamo se uskoro. Hvala na strpljenju.
+          </p>
+          <Link to="/admin" className="text-xs text-muted-foreground underline">
+            Admin
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
