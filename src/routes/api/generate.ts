@@ -36,18 +36,22 @@ export const Route = createFileRoute("/api/generate")({
           '3) "needsInfo" — ako ti TREBA nešto od korisnika (API ključ, tekst, podaci, slike, link) prije nego što možeš napraviti, ovdje napiši ŠTO točno trebaš, prijateljski. Inače null. Ako needsInfo nije null, html može biti null. ' +
           'Vrati SAMO sirovi JSON, bez ```json ograda, bez objašnjenja izvan JSON-a.';
 
+        const topicGuard =
+          ' DRŽI SE TEME: Tema/svrha stranice je definirana PRVIM korisničkim zahtjevom i postojećim HTML-om. Sve buduće izmjene moraju ostati U KONTEKSTU te teme — ne mijenjaj tip stranice (npr. ako je restoran, ne pretvaraj ga u tech blog), ne briši cijele postojeće sekcije osim ako korisnik to izričito traži, čuvaj brand, ton, paletu boja, fontove i postojeći sadržaj. Mijenjaj samo ono što je traženo, ostalo zadrži IDENTIČNO. Ako korisnik traži nešto potpuno off-topic (npr. na stranici za pizzeriju traži "dodaj kalkulator hipoteke"), u "needsInfo" pristojno potvrdi želi li to stvarno na ovoj stranici prije nego napraviš.';
+
         const messages = existingHtml
           ? [
               {
                 role: "system",
                 content:
                   systemBase +
-                  ' KONTEKST: Korisnik UREĐUJE postojeću stranicu. U "message" jasno opiši što ćeš promijeniti. U "html" vrati cijeli ažurirani dokument s primijenjenim izmjenama, čuvajući strukturu i ton osim ako je traženo drugačije.',
+                  topicGuard +
+                  ' KONTEKST: Korisnik UREĐUJE postojeću stranicu. U "message" jasno opiši što ćeš promijeniti. U "html" vrati cijeli ažurirani dokument s primijenjenim izmjenama, čuvajući strukturu, dizajn i sadržaj osim onoga što korisnik mijenja.',
               },
-              { role: "user", content: `Postojeći HTML:\n\n${existingHtml}\n\nZahtjev korisnika: ${prompt}` },
+              { role: "user", content: `Postojeći HTML (ovo je trenutna stranica — drži se njene teme):\n\n${existingHtml}\n\nZahtjev korisnika: ${prompt}` },
             ]
           : [
-              { role: "system", content: systemBase + ' KONTEKST: Korisnik traži NOVU stranicu.' },
+              { role: "system", content: systemBase + ' KONTEKST: Korisnik traži NOVU stranicu. Tema koju sad odrediš bit će zaključana za sve buduće izmjene.' },
               { role: "user", content: prompt },
             ];
 
