@@ -99,9 +99,17 @@ function AppPage() {
         return;
       }
 
-      const aiMessage: string = data.message || (data.html ? "Gotovo." : "");
+      const clean = (s: string) =>
+        s
+          .replace(/\\r\\n/g, "\n")
+          .replace(/\\n/g, "\n")
+          .replace(/\\t/g, "\t")
+          .replace(/\\"/g, '"')
+          .replace(/\\\\/g, "\\");
+
+      const aiMessage: string = clean(data.message || (data.html ? "Gotovo." : ""));
       const html: string | null = data.html;
-      const needsInfo: string | null = data.needsInfo;
+      const needsInfo: string | null = data.needsInfo ? clean(data.needsInfo) : null;
 
       if (needsInfo && !html) {
         pushMessage(startKey, {
