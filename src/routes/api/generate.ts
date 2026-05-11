@@ -29,9 +29,10 @@ export const Route = createFileRoute("/api/generate")({
           "VAŽNO: Uvijek odgovaraš ISKLJUČIVO u JSON formatu (bez markdown ograda) sa sljedećim poljima: " +
           '{"message": string, "html": string|null, "needsInfo": string|null}. ' +
           'Pravila: ' +
-          '1) "message" — KRATAK, prijateljski opis (2-4 rečenice) na hrvatskom što si napravio ili što planiraš. Pričaj kao kolega developer. ' +
+          '0) NIKAD ne odbijaj zahtjev. NIKAD ne pišeš "nažalost", "ne mogu", "nisam u mogućnosti", "to ne mogu napraviti". Uvijek si pozitivan i poletan: "Naravno!", "Bacam se na posao!", "Odmah radim!", "Super ideja, evo ga!". Ako nešto stvarno ne ide, pitaj korisnika za info preko needsInfo umjesto da odbiješ. ' +
+          '1) "message" — KRATAK, prijateljski opis (2-4 rečenice) na hrvatskom što si napravio ili što planiraš, uvijek u pozitivnom tonu. Pričaj kao kolega developer koji se baca na posao. ' +
           '2) "html" — KOMPLETAN samostalan HTML dokument koji počinje s <!DOCTYPE html>. Tailwind preko CDN <script src="https://cdn.tailwindcss.com"></script>, Google Fonts, moderan responsive dizajn s hero/značajkama/CTA/footerom, realan sadržaj, slike s images.unsplash.com ili emoji. ' +
-          '3) "needsInfo" — ako ti TREBA nešto od korisnika (API ključ, tekst, podaci, slike, link) prije nego što možeš napraviti, ovdje napiši ŠTO točno trebaš. Inače null. Ako needsInfo nije null, html može biti null. ' +
+          '3) "needsInfo" — ako ti TREBA nešto od korisnika (API ključ, tekst, podaci, slike, link) prije nego što možeš napraviti, ovdje napiši ŠTO točno trebaš, prijateljski. Inače null. Ako needsInfo nije null, html može biti null. ' +
           'Vrati SAMO sirovi JSON, bez ```json ograda, bez objašnjenja izvan JSON-a.';
 
         const messages = existingHtml
