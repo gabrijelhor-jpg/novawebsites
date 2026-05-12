@@ -5,9 +5,10 @@ export const Route = createFileRoute("/api/generate")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { prompt, existingHtml } = (await request.json()) as {
+        const { prompt, existingHtml, attachedHtml } = (await request.json()) as {
           prompt?: string;
           existingHtml?: string;
+          attachedHtml?: string;
         };
         if (!prompt || typeof prompt !== "string" || prompt.length > 4000) {
           return new Response(JSON.stringify({ error: "Neispravan upit." }), {
@@ -39,6 +40,10 @@ export const Route = createFileRoute("/api/generate")({
         const topicGuard =
           ' DRŽI SE TEME: Tema/svrha stranice je definirana PRVIM korisničkim zahtjevom i postojećim HTML-om. Sve buduće izmjene moraju ostati U KONTEKSTU te teme — ne mijenjaj tip stranice (npr. ako je restoran, ne pretvaraj ga u tech blog), ne briši cijele postojeće sekcije osim ako korisnik to izričito traži, čuvaj brand, ton, paletu boja, fontove i postojeći sadržaj. Mijenjaj samo ono što je traženo, ostalo zadrži IDENTIČNO. Ako korisnik traži nešto potpuno off-topic (npr. na stranici za pizzeriju traži "dodaj kalkulator hipoteke"), u "needsInfo" pristojno potvrdi želi li to stvarno na ovoj stranici prije nego napraviš.';
 
+        const attachedBlock = attachedHtml
+          ? `\n\nPRILOŽENI HTML (korisnik je priložio ovaj HTML kao referencu — iskoristi ga, ugradi ga ili ga prilagodi prema zahtjevu):\n\n${attachedHtml}`
+          : "";
+
         const messages = existingHtml
           ? [
               {
@@ -48,11 +53,11 @@ export const Route = createFileRoute("/api/generate")({
                   topicGuard +
                   ' KONTEKST: Korisnik UREĐUJE postojeću stranicu. U "message" jasno opiši što ćeš promijeniti. U "html" vrati cijeli ažurirani dokument s primijenjenim izmjenama, čuvajući strukturu, dizajn i sadržaj osim onoga što korisnik mijenja.',
               },
-              { role: "user", content: `Postojeći HTML (ovo je trenutna stranica — drži se njene teme):\n\n${existingHtml}\n\nZahtjev korisnika: ${prompt}` },
+              { role: "user", content: `Postojeći HTML (ovo je trenutna stranica — drži se njene teme):\n\n${existingHtml}${attachedBlock}\n\nZahtjev korisnika: ${prompt}` },
             ]
           : [
-              { role: "system", content: systemBase + ' KONTEKST: Korisnik traži NOVU stranicu. Tema koju sad odrediš bit će zaključana za sve buduće izmjene.' },
-              { role: "user", content: prompt },
+              { role: "system", content: systemBase + (attachedHtml ? ' KONTEKST: Korisnik je priložio postojeći HTML i želi da ga iskoristiš, doradiš ili ugradiš u novu stranicu prema zahtjevu.' : ' KONTEKST: Korisnik traži NOVU stranicu. Tema koju sad odrediš bit će zaključana za sve buduće izmjene.') },
+              { role: "user", content: attachedHtml ? `Zahtjev korisnika: ${prompt}${attachedBlock}` : prompt! },
             ];
 
         const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
