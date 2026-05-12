@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Sparkles, Loader2, Plus, LogOut, Download, Trash2, Pencil, Bot, User as UserIcon, AlertCircle } from "lucide-react";
+import { ArrowUp, Sparkles, Loader2, Plus, LogOut, Download, Trash2, Pencil, Bot, User as UserIcon, AlertCircle, Paperclip, X, FileCode } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -34,6 +34,22 @@ function AppPage() {
   // chats key: generation id, or "__new" for the not-yet-saved draft
   const NEW_KEY = "__new";
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachedHtml, setAttachedHtml] = useState<string | null>(null);
+  const [attachedName, setAttachedName] = useState<string>("");
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteValue, setPasteValue] = useState("");
+
+  const onPickFile = (file: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result ?? "");
+      setAttachedHtml(text.slice(0, 200_000));
+      setAttachedName(file.name);
+    };
+    reader.readAsText(file);
+  };
 
   useEffect(() => {
     if (!authLoading && !user) navigate({ to: "/auth" });
