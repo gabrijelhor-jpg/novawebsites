@@ -77,6 +77,23 @@ function AppPage() {
       });
   }, [user]);
 
+  // Load persisted chats from localStorage on mount
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const raw = localStorage.getItem(`nova:chats:${user.id}`);
+      if (raw) setChats(JSON.parse(raw));
+    } catch {}
+  }, [user]);
+
+  // Persist chats whenever they change
+  useEffect(() => {
+    if (!user) return;
+    try {
+      localStorage.setItem(`nova:chats:${user.id}`, JSON.stringify(chats));
+    } catch {}
+  }, [chats, user]);
+
   const active = items.find((i) => i.id === activeId) ?? null;
   const chatKey = activeId ?? NEW_KEY;
   const messages = chats[chatKey] ?? [];
