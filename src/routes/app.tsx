@@ -370,6 +370,59 @@ function AppPage() {
             </div>
 
             <div className="border-t border-border p-3">
+              {attachedHtml && (
+                <div className="mb-2 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary/70 border border-border text-xs">
+                  <FileCode className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="truncate flex-1">{attachedName || "priloženi.html"}</span>
+                  <span className="text-muted-foreground">{Math.ceil(attachedHtml.length / 1024)} KB</span>
+                  <button
+                    onClick={() => { setAttachedHtml(null); setAttachedName(""); }}
+                    className="p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                    title="Ukloni"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              {pasteOpen && (
+                <div className="mb-2 rounded-lg border border-border bg-card p-2">
+                  <textarea
+                    value={pasteValue}
+                    onChange={(e) => setPasteValue(e.target.value)}
+                    placeholder="Zalijepi HTML ovdje…"
+                    rows={5}
+                    className="w-full resize-none bg-transparent px-2 py-1.5 outline-none text-xs font-mono placeholder:text-muted-foreground"
+                  />
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      onClick={() => { setPasteOpen(false); setPasteValue(""); }}
+                      className="text-xs px-2.5 py-1 rounded hover:bg-secondary text-muted-foreground"
+                    >Odustani</button>
+                    <button
+                      onClick={() => {
+                        if (pasteValue.trim()) {
+                          setAttachedHtml(pasteValue.slice(0, 200_000));
+                          setAttachedName("zaljepljeni.html");
+                        }
+                        setPasteOpen(false);
+                        setPasteValue("");
+                      }}
+                      className="text-xs px-2.5 py-1 rounded bg-primary text-primary-foreground hover:opacity-90"
+                    >Priloži</button>
+                  </div>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".html,.htm,text/html"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onPickFile(f);
+                  e.target.value = "";
+                }}
+              />
               <div className="bg-card border border-border rounded-2xl shadow-soft p-2">
                 <textarea
                   value={prompt}
@@ -386,7 +439,23 @@ function AppPage() {
                   className="w-full resize-none bg-transparent px-3 pt-2 pb-1 outline-none text-sm placeholder:text-muted-foreground"
                 />
                 <div className="flex items-center justify-between px-1.5 pb-0.5">
-                  <span className="text-[11px] text-muted-foreground">⌘ + Enter</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      title="Priloži HTML datoteku"
+                      className="p-1.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground transition"
+                    >
+                      <Paperclip className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setPasteOpen((v) => !v)}
+                      title="Zalijepi HTML"
+                      className={`p-1.5 rounded-full hover:bg-secondary transition ${pasteOpen ? "text-foreground bg-secondary" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      <FileCode className="w-4 h-4" />
+                    </button>
+                    <span className="text-[11px] text-muted-foreground ml-1">⌘ + Enter</span>
+                  </div>
                   <button
                     onClick={generate}
                     disabled={loading || !prompt.trim()}
