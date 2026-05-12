@@ -96,8 +96,14 @@ function AppPage() {
     setError("");
     const isEdit = active !== null;
     const startKey = chatKey;
-    pushMessage(startKey, { role: "user", text: userText });
+    const userTextDisplay = attachedHtml
+      ? `${userText}\n\n📎 ${attachedName || "priloženi.html"}`
+      : userText;
+    pushMessage(startKey, { role: "user", text: userTextDisplay });
     setPrompt("");
+    const sentAttached = attachedHtml;
+    setAttachedHtml(null);
+    setAttachedName("");
 
     try {
       const res = await fetch("/api/generate", {
@@ -106,6 +112,7 @@ function AppPage() {
         body: JSON.stringify({
           prompt: userText,
           existingHtml: isEdit ? active!.html : undefined,
+          attachedHtml: sentAttached ?? undefined,
         }),
       });
       const data = await res.json();
