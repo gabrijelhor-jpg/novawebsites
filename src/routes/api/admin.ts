@@ -1,11 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-const ADMIN_USER = "gabrijelhor";
-const ADMIN_PASS = "Bmwcir8cl";
+const ADMINS: Record<string, string> = {
+  gabrijelhor: "Bmwcir8cl",
+  davidknez: "davidknez",
+};
 
 function checkAuth(body: any) {
-  return body?.adminUser === ADMIN_USER && body?.adminPass === ADMIN_PASS;
+  const u = body?.adminUser;
+  const p = body?.adminPass;
+  return typeof u === "string" && typeof p === "string" && ADMINS[u] === p;
 }
 
 export const Route = createFileRoute("/api/admin")({
@@ -48,6 +52,24 @@ export const Route = createFileRoute("/api/admin")({
               return Response.json({ settings: data });
             }
 
+            case "update-pricing": {
+              const cents = Number(body.cents_per_1000_points);
+              const ppc = Number(body.points_per_chat);
+              const start = Number(body.free_starting_points);
+              const patch: Record<string, number | string> = { updated_at: new Date().toISOString() };
+              if (Number.isFinite(cents) && cents >= 0) patch.cents_per_1000_points = Math.floor(cents);
+              if (Number.isFinite(ppc) && ppc > 0) patch.points_per_chat = Math.floor(ppc);
+              if (Number.isFinite(start) && start >= 0) patch.free_starting_points = Math.floor(start);
+              const { data, error } = await supabaseAdmin
+                .from("site_settings")
+                .update(patch)
+                .eq("id", 1)
+                .select()
+                .single();
+              if (error) throw error;
+              return Response.json({ settings: data });
+            }
+
             case "list-users": {
               const { data, error } = await supabaseAdmin.auth.admin.listUsers({
                 page: 1,
@@ -61,7 +83,8 @@ export const Route = createFileRoute("/api/admin")({
                 last_sign_in_at: u.last_sign_in_at,
                 provider: u.app_metadata?.provider ?? "email",
               }));
-              return Response.json({ users });
+              const { data: credits } = await supabaseAdmin.from("user_credits").select("*");
+              return Response.json({ users, credits: credits ?? [] });
             }
 
             case "list-projects": {
@@ -72,6 +95,76 @@ export const Route = createFileRoute("/api/admin")({
                 .limit(500);
               if (error) throw error;
               return Response.json({ projects: data });
+            }
+
+            case "stats": {
+              const { data: credits } = await supabaseAdmin
+                .from("user_credits")
+                .select("total_used_points, total_paid_cents, points_balance, is_free");
+              const totalUsed = (credits ?? []).reduce((s, r) => s + (r.total_used_points ?? 0), 0);
+              const totalPaidCents = (credits ?? []).reduce((s, r) => s + (r.total_paid_cents ?? 0), 0);
+              const totalBalance = (credits ?? []).reduce((s, r) => s + (r.points_balance ?? 0), 0);
+              const freeUsers = (credits ?? []).filter((r) => r.is_free).length;
+              return Response.json({
+                stats: {
+                  total_used_points: totalUsed,
+                  total_paid_cents: totalPaidCents,
+                  total_balance: totalBalance,
+                  free_users: freeUsers,
+                  user_count: (credits ?? []).length,
+                },
+              });
+            }
+
+            case "toggle-free": {
+              const userId: string = body.userId;
+              const isFree = !!body.isFree;
+              if (!userId) throw new Error("userId je obavezan");
+              await supabaseAdmin
+                .from("user_credits")
+                .upsert({ user_id: userId, is_free: isFree }, { onConflict: "user_id" });
+              return Response.json({ ok: true });
+            }
+
+            case "set-credits": {
+              const userId: string = body.userId;
+              const points = Number(body.points);
+              if (!userId || !Number.isFinite(points)) throw new Error("userId i points su obavezni");
+              await supabaseAdmin
+                .from("user_credits")
+                .upsert(
+                  { user_id: userId, points_balance: Math.max(0, Math.floor(points)) },
+                  { onConflict: "user_id" }
+                );
+              return Response.json({ ok: true });
+            }
+
+            case "add-payment": {
+              const userId: string = body.userId;
+              const cents = Number(body.cents);
+              if (!userId || !Number.isFinite(cents) || cents <= 0)
+                throw new Error("userId i iznos (centi) su obavezni");
+              const { data: settings } = await supabaseAdmin
+                .from("site_settings")
+                .select("cents_per_1000_points")
+                .eq("id", 1)
+                .single();
+              const rate = settings?.cents_per_1000_points ?? 20;
+              const points = Math.floor((cents / rate) * 1000);
+              const { data: existing } = await supabaseAdmin
+                .from("user_credits")
+                .select("points_balance, total_paid_cents")
+                .eq("user_id", userId)
+                .maybeSingle();
+              await supabaseAdmin.from("user_credits").upsert(
+                {
+                  user_id: userId,
+                  points_balance: (existing?.points_balance ?? 0) + points,
+                  total_paid_cents: (existing?.total_paid_cents ?? 0) + Math.floor(cents),
+                },
+                { onConflict: "user_id" }
+              );
+              return Response.json({ ok: true, added_points: points });
             }
 
             case "delete-user": {
