@@ -1,5 +1,7 @@
 import "@tanstack/react-start";
 import { createFileRoute } from "@tanstack/react-router";
+import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export const Route = createFileRoute("/api/generate")({
   server: {
@@ -23,6 +25,50 @@ export const Route = createFileRoute("/api/generate")({
             status: 500,
             headers: { "content-type": "application/json" },
           });
+        }
+
+        // Auth + credits check
+        const authHeader = request.headers.get("authorization") ?? "";
+        const token = authHeader.replace(/^Bearer\s+/i, "");
+        if (!token) {
+          return new Response(JSON.stringify({ error: "Nisi prijavljen." }), {
+            status: 401,
+            headers: { "content-type": "application/json" },
+          });
+        }
+        const sb = createClient(
+          process.env.SUPABASE_URL!,
+          process.env.SUPABASE_PUBLISHABLE_KEY!,
+          { global: { headers: { Authorization: `Bearer ${token}` } } }
+        );
+        const { data: userData } = await sb.auth.getUser();
+        const userId = userData?.user?.id;
+        if (!userId) {
+          return new Response(JSON.stringify({ error: "Sesija nije važeća." }), {
+            status: 401,
+            headers: { "content-type": "application/json" },
+          });
+        }
+
+        const { data: settings } = await supabaseAdmin
+          .from("site_settings")
+          .select("points_per_chat")
+          .eq("id", 1)
+          .single();
+        const cost = settings?.points_per_chat ?? 100;
+
+        const { data: credits } = await supabaseAdmin
+          .from("user_credits")
+          .select("points_balance, is_free, total_used_points")
+          .eq("user_id", userId)
+          .maybeSingle();
+        const balance = credits?.points_balance ?? 0;
+        const isFree = !!credits?.is_free;
+        if (!isFree && balance < cost) {
+          return new Response(
+            JSON.stringify({ error: `Nemaš dovoljno bodova (potrebno ${cost}, imaš ${balance}). Nadoplati u admin panelu.` }),
+            { status: 402, headers: { "content-type": "application/json" } }
+          );
         }
 
         const systemBase =
@@ -120,9 +166,26 @@ export const Route = createFileRoute("/api/generate")({
           if (idx > 0) html = html.slice(idx);
         }
 
-        return new Response(JSON.stringify({ message, html, needsInfo }), {
-          headers: { "content-type": "application/json" },
-        });
+        // Deduct points (only if AI returned something useful and user is not free)
+        let newBalance = balance;
+        if (!isFree && (html || needsInfo)) {
+          newBalance = Math.max(0, balance - cost);
+          await supabaseAdmin
+            .from("user_credits")
+            .upsert(
+              {
+                user_id: userId,
+                points_balance: newBalance,
+                total_used_points: (credits?.total_used_points ?? 0) + cost,
+              },
+              { onConflict: "user_id" }
+            );
+        }
+
+        return new Response(
+          JSON.stringify({ message, html, needsInfo, balance: isFree ? null : newBalance, cost }),
+          { headers: { "content-type": "application/json" } }
+        );
       },
     },
   },

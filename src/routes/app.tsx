@@ -39,6 +39,9 @@ function AppPage() {
   const [attachedName, setAttachedName] = useState<string>("");
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteValue, setPasteValue] = useState("");
+  const [balance, setBalance] = useState<number | null>(null);
+  const [isFree, setIsFree] = useState(false);
+  const [pricing, setPricing] = useState<{ points_per_chat: number; cents_per_1000_points: number } | null>(null);
 
   const onPickFile = (file: File) => {
     if (!file) return;
@@ -94,6 +97,17 @@ function AppPage() {
     } catch {}
   }, [chats, user]);
 
+  // Load credits + pricing
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("user_credits").select("points_balance, is_free").eq("user_id", user.id).maybeSingle().then(({ data }) => {
+      if (data) { setBalance(data.points_balance ?? 0); setIsFree(!!data.is_free); }
+    });
+    supabase.from("site_settings").select("points_per_chat, cents_per_1000_points").eq("id", 1).single().then(({ data }) => {
+      if (data) setPricing({ points_per_chat: data.points_per_chat, cents_per_1000_points: data.cents_per_1000_points });
+    });
+  }, [user]);
+
   const active = items.find((i) => i.id === activeId) ?? null;
   const chatKey = activeId ?? NEW_KEY;
   const messages = chats[chatKey] ?? [];
@@ -123,9 +137,14 @@ function AppPage() {
     setAttachedName("");
 
     try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
       const res = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           prompt: userText,
           existingHtml: isEdit ? active!.html : undefined,
@@ -133,6 +152,7 @@ function AppPage() {
         }),
       });
       const data = await res.json();
+      if (typeof data.balance === "number") setBalance(data.balance);
       if (!res.ok) {
         setError(data.error ?? "Greška");
         pushMessage(startKey, { role: "assistant", text: data.error ?? "Greška" });
@@ -290,8 +310,27 @@ function AppPage() {
           ))}
         </div>
 
-        <div className="p-3 border-t border-border">
-          <div className="flex items-center justify-between gap-2 px-2 py-2">
+        <div className="p-3 border-t border-border space-y-2">
+          {balance !== null && (
+            <div className="px-2 py-2 rounded-lg bg-secondary/60 text-xs">
+              {isFree ? (
+                <span className="text-emerald-600 dark:text-emerald-400">✦ Besplatan pristup</span>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Bodovi</span>
+                    <span className="font-medium">{balance.toLocaleString("hr-HR")}</span>
+                  </div>
+                  {pricing && (
+                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                      {pricing.points_per_chat} bodova / chat · {pricing.cents_per_1000_points}¢ za 1000
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-2 px-2">
             <span className="text-xs text-muted-foreground truncate">{user.email}</span>
             <button
               onClick={logout}

@@ -46,19 +46,58 @@ export type Database = {
       }
       site_settings: {
         Row: {
+          cents_per_1000_points: number
           enabled: boolean
+          free_starting_points: number
           id: number
+          points_per_chat: number
           updated_at: string
         }
         Insert: {
+          cents_per_1000_points?: number
           enabled?: boolean
+          free_starting_points?: number
           id?: number
+          points_per_chat?: number
           updated_at?: string
         }
         Update: {
+          cents_per_1000_points?: number
           enabled?: boolean
+          free_starting_points?: number
           id?: number
+          points_per_chat?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      user_credits: {
+        Row: {
+          created_at: string
+          is_free: boolean
+          points_balance: number
+          total_paid_cents: number
+          total_used_points: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          is_free?: boolean
+          points_balance?: number
+          total_paid_cents?: number
+          total_used_points?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          is_free?: boolean
+          points_balance?: number
+          total_paid_cents?: number
+          total_used_points?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
