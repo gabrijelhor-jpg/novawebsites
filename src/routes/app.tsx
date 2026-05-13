@@ -97,6 +97,17 @@ function AppPage() {
     } catch {}
   }, [chats, user]);
 
+  // Load credits + pricing
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("user_credits").select("points_balance, is_free").eq("user_id", user.id).maybeSingle().then(({ data }) => {
+      if (data) { setBalance(data.points_balance ?? 0); setIsFree(!!data.is_free); }
+    });
+    supabase.from("site_settings").select("points_per_chat, cents_per_1000_points").eq("id", 1).single().then(({ data }) => {
+      if (data) setPricing({ points_per_chat: data.points_per_chat, cents_per_1000_points: data.cents_per_1000_points });
+    });
+  }, [user]);
+
   const active = items.find((i) => i.id === activeId) ?? null;
   const chatKey = activeId ?? NEW_KEY;
   const messages = chats[chatKey] ?? [];
