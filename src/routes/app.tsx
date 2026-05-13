@@ -137,9 +137,14 @@ function AppPage() {
     setAttachedName("");
 
     try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
       const res = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           prompt: userText,
           existingHtml: isEdit ? active!.html : undefined,
@@ -147,6 +152,7 @@ function AppPage() {
         }),
       });
       const data = await res.json();
+      if (typeof data.balance === "number") setBalance(data.balance);
       if (!res.ok) {
         setError(data.error ?? "Greška");
         pushMessage(startKey, { role: "assistant", text: data.error ?? "Greška" });
