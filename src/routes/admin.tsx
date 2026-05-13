@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   Sparkles, Loader2, Trash2, Power, PowerOff, RefreshCw, KeyRound, LogOut,
-  Users, FileCode2, Coins, DollarSign, Settings as SettingsIcon, Check, Plus, Minus,
+  Users, FileCode2, Coins, DollarSign, Settings as SettingsIcon, Check, Plus,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
