@@ -310,8 +310,27 @@ function AppPage() {
           ))}
         </div>
 
-        <div className="p-3 border-t border-border">
-          <div className="flex items-center justify-between gap-2 px-2 py-2">
+        <div className="p-3 border-t border-border space-y-2">
+          {balance !== null && (
+            <div className="px-2 py-2 rounded-lg bg-secondary/60 text-xs">
+              {isFree ? (
+                <span className="text-emerald-600 dark:text-emerald-400">✦ Besplatan pristup</span>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Bodovi</span>
+                    <span className="font-medium">{balance.toLocaleString("hr-HR")}</span>
+                  </div>
+                  {pricing && (
+                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                      {pricing.points_per_chat} bodova / chat · {pricing.cents_per_1000_points}¢ za 1000
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-2 px-2">
             <span className="text-xs text-muted-foreground truncate">{user.email}</span>
             <button
               onClick={logout}
