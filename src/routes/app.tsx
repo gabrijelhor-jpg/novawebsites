@@ -39,6 +39,9 @@ function AppPage() {
   const [attachedName, setAttachedName] = useState<string>("");
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteValue, setPasteValue] = useState("");
+  const [balance, setBalance] = useState<number | null>(null);
+  const [isFree, setIsFree] = useState(false);
+  const [pricing, setPricing] = useState<{ points_per_chat: number; cents_per_1000_points: number } | null>(null);
 
   const onPickFile = (file: File) => {
     if (!file) return;
