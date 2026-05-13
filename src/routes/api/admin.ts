@@ -56,7 +56,12 @@ export const Route = createFileRoute("/api/admin")({
               const cents = Number(body.cents_per_1000_points);
               const ppc = Number(body.points_per_chat);
               const start = Number(body.free_starting_points);
-              const patch: Record<string, number | string> = { updated_at: new Date().toISOString() };
+              const patch: {
+                updated_at: string;
+                cents_per_1000_points?: number;
+                points_per_chat?: number;
+                free_starting_points?: number;
+              } = { updated_at: new Date().toISOString() };
               if (Number.isFinite(cents) && cents >= 0) patch.cents_per_1000_points = Math.floor(cents);
               if (Number.isFinite(ppc) && ppc > 0) patch.points_per_chat = Math.floor(ppc);
               if (Number.isFinite(start) && start >= 0) patch.free_starting_points = Math.floor(start);
