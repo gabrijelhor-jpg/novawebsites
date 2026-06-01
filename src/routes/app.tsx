@@ -578,7 +578,11 @@ function AppPage() {
           </div>
 
           {/* Preview panel */}
-          <div className="flex-1 overflow-hidden bg-secondary/40 p-4 min-w-0">
+          <div
+            className={`${
+              active ? (mobileTab === "preview" ? "block" : "hidden") : "hidden"
+            } md:block flex-1 overflow-hidden bg-secondary/40 p-2 md:p-4 min-w-0`}
+          >
             {active ? (
               <iframe
                 title="Preview"
