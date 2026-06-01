@@ -50,26 +50,9 @@ export const Route = createFileRoute("/api/generate")({
           });
         }
 
-        const { data: settings } = await supabaseAdmin
-          .from("site_settings")
-          .select("points_per_chat")
-          .eq("id", 1)
-          .single();
-        const cost = settings?.points_per_chat ?? 100;
-
-        const { data: credits } = await supabaseAdmin
-          .from("user_credits")
-          .select("points_balance, is_free, total_used_points")
-          .eq("user_id", userId)
-          .maybeSingle();
-        const balance = credits?.points_balance ?? 0;
-        const isFree = !!credits?.is_free;
-        if (!isFree && balance < cost) {
-          return new Response(
-            JSON.stringify({ error: `Nemaš dovoljno bodova (potrebno ${cost}, imaš ${balance}). Nadoplati u admin panelu.` }),
-            { status: 402, headers: { "content-type": "application/json" } }
-          );
-        }
+        // Beskonačno kredita — ne provjeravamo stanje i ne oduzimamo
+        const isFree = true;
+        const cost = 0;
 
         const systemBase =
           "Ti si Nova — AI asistent koji izrađuje i uređuje web stranice na hrvatskom. " +
@@ -166,24 +149,8 @@ export const Route = createFileRoute("/api/generate")({
           if (idx > 0) html = html.slice(idx);
         }
 
-        // Deduct points (only if AI returned something useful and user is not free)
-        let newBalance = balance;
-        if (!isFree && (html || needsInfo)) {
-          newBalance = Math.max(0, balance - cost);
-          await supabaseAdmin
-            .from("user_credits")
-            .upsert(
-              {
-                user_id: userId,
-                points_balance: newBalance,
-                total_used_points: (credits?.total_used_points ?? 0) + cost,
-              },
-              { onConflict: "user_id" }
-            );
-        }
-
         return new Response(
-          JSON.stringify({ message, html, needsInfo, balance: isFree ? null : newBalance, cost }),
+          JSON.stringify({ message, html, needsInfo, balance: null, cost: 0 }),
           { headers: { "content-type": "application/json" } }
         );
       },
