@@ -216,6 +216,7 @@ function AppPage() {
           return next;
         });
         setActiveId(row.id);
+        setMobileTab("preview");
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Greška";
