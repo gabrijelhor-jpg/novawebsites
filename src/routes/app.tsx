@@ -42,6 +42,8 @@ function AppPage() {
   const [balance, setBalance] = useState<number | null>(null);
   const [isFree, setIsFree] = useState(false);
   const [pricing, setPricing] = useState<{ points_per_chat: number; cents_per_1000_points: number } | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
 
   const onPickFile = (file: File) => {
     if (!file) return;
