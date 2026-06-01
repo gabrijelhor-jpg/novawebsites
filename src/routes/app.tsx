@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Sparkles, Loader2, Plus, LogOut, Download, Trash2, Pencil, Bot, User as UserIcon, AlertCircle, Paperclip, X, FileCode } from "lucide-react";
+import { ArrowUp, Sparkles, Loader2, Plus, LogOut, Download, Trash2, Pencil, Bot, User as UserIcon, AlertCircle, Paperclip, X, FileCode, Menu, Eye, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -42,6 +42,8 @@ function AppPage() {
   const [balance, setBalance] = useState<number | null>(null);
   const [isFree, setIsFree] = useState(false);
   const [pricing, setPricing] = useState<{ points_per_chat: number; cents_per_1000_points: number } | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
 
   const onPickFile = (file: File) => {
     if (!file) return;
@@ -214,6 +216,7 @@ function AppPage() {
           return next;
         });
         setActiveId(row.id);
+        setMobileTab("preview");
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Greška";
@@ -255,9 +258,20 @@ function AppPage() {
   }
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
+    <div className="h-screen flex bg-background text-foreground overflow-hidden">
+      {/* Sidebar backdrop on mobile */}
+      {sidebarOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/40 z-30"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
       {/* Sidebar */}
-      <aside className="w-72 border-r border-border flex flex-col bg-card/40">
+      <aside
+        className={`fixed md:static z-40 inset-y-0 left-0 w-72 border-r border-border flex flex-col bg-card transform transition-transform md:transform-none ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
         <div className="p-4 border-b border-border flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-gradient-accent grid place-items-center">
@@ -294,6 +308,8 @@ function AppPage() {
                 onClick={() => {
                   setActiveId(it.id);
                   setPrompt("");
+                  setSidebarOpen(false);
+                  setMobileTab("preview");
                 }}
                 className="flex-1 text-left px-3 py-2 text-sm truncate"
               >
@@ -345,32 +361,67 @@ function AppPage() {
 
       {/* Main */}
       <main className="flex-1 flex flex-col min-w-0">
-        <div className="border-b border-border px-6 py-3 flex items-center justify-between">
+        <div className="border-b border-border px-4 md:px-6 py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-sm text-muted-foreground">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden p-1.5 -ml-1 rounded hover:bg-secondary text-muted-foreground"
+              title="Izbornik"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <span className="text-sm text-muted-foreground hidden sm:inline">
               {active ? "Uređuješ" : "Nova izrada"}
             </span>
             {active && (
-              <span className="font-medium truncate flex items-center gap-2">
-                · <Pencil className="w-3.5 h-3.5 text-muted-foreground" /> {active.title}
+              <span className="font-medium truncate flex items-center gap-2 text-sm">
+                <Pencil className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <span className="truncate">{active.title}</span>
               </span>
             )}
           </div>
-          {active && (
-            <a
-              href={`data:text/html;charset=utf-8,${encodeURIComponent(active.html)}`}
-              download={`${active.title || "nova"}.html`}
-              className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border hover:bg-secondary transition"
-            >
-              <Download className="w-3.5 h-3.5" /> Preuzmi HTML
-            </a>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Mobile tab switcher */}
+            {active && (
+              <div className="md:hidden flex items-center rounded-full border border-border p-0.5 bg-card">
+                <button
+                  onClick={() => setMobileTab("chat")}
+                  className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full transition ${
+                    mobileTab === "chat" ? "bg-secondary text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" /> Chat
+                </button>
+                <button
+                  onClick={() => setMobileTab("preview")}
+                  className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full transition ${
+                    mobileTab === "preview" ? "bg-secondary text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5" /> Preview
+                </button>
+              </div>
+            )}
+            {active && (
+              <a
+                href={`data:text/html;charset=utf-8,${encodeURIComponent(active.html)}`}
+                download={`${active.title || "nova"}.html`}
+                className="text-xs hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border hover:bg-secondary transition"
+              >
+                <Download className="w-3.5 h-3.5" /> Preuzmi HTML
+              </a>
+            )}
+          </div>
         </div>
 
         {/* Split: chat + preview */}
         <div className="flex-1 flex min-h-0">
           {/* Chat panel */}
-          <div className="w-[380px] border-r border-border flex flex-col bg-card/20 min-h-0">
+          <div
+            className={`${
+              active ? (mobileTab === "chat" ? "flex" : "hidden") : "flex"
+            } md:flex w-full md:w-[380px] md:border-r border-border flex-col bg-card/20 min-h-0`}
+          >
             <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
               {messages.length === 0 && !loading && (
                 <div className="text-center text-xs text-muted-foreground py-8">
@@ -530,7 +581,11 @@ function AppPage() {
           </div>
 
           {/* Preview panel */}
-          <div className="flex-1 overflow-hidden bg-secondary/40 p-4 min-w-0">
+          <div
+            className={`${
+              active ? (mobileTab === "preview" ? "block" : "hidden") : "hidden"
+            } md:block flex-1 overflow-hidden bg-secondary/40 p-2 md:p-4 min-w-0`}
+          >
             {active ? (
               <iframe
                 title="Preview"
