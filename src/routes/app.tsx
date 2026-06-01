@@ -358,32 +358,67 @@ function AppPage() {
 
       {/* Main */}
       <main className="flex-1 flex flex-col min-w-0">
-        <div className="border-b border-border px-6 py-3 flex items-center justify-between">
+        <div className="border-b border-border px-4 md:px-6 py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-sm text-muted-foreground">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden p-1.5 -ml-1 rounded hover:bg-secondary text-muted-foreground"
+              title="Izbornik"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <span className="text-sm text-muted-foreground hidden sm:inline">
               {active ? "Uređuješ" : "Nova izrada"}
             </span>
             {active && (
-              <span className="font-medium truncate flex items-center gap-2">
-                · <Pencil className="w-3.5 h-3.5 text-muted-foreground" /> {active.title}
+              <span className="font-medium truncate flex items-center gap-2 text-sm">
+                <Pencil className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <span className="truncate">{active.title}</span>
               </span>
             )}
           </div>
-          {active && (
-            <a
-              href={`data:text/html;charset=utf-8,${encodeURIComponent(active.html)}`}
-              download={`${active.title || "nova"}.html`}
-              className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border hover:bg-secondary transition"
-            >
-              <Download className="w-3.5 h-3.5" /> Preuzmi HTML
-            </a>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Mobile tab switcher */}
+            {active && (
+              <div className="md:hidden flex items-center rounded-full border border-border p-0.5 bg-card">
+                <button
+                  onClick={() => setMobileTab("chat")}
+                  className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full transition ${
+                    mobileTab === "chat" ? "bg-secondary text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" /> Chat
+                </button>
+                <button
+                  onClick={() => setMobileTab("preview")}
+                  className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full transition ${
+                    mobileTab === "preview" ? "bg-secondary text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5" /> Preview
+                </button>
+              </div>
+            )}
+            {active && (
+              <a
+                href={`data:text/html;charset=utf-8,${encodeURIComponent(active.html)}`}
+                download={`${active.title || "nova"}.html`}
+                className="text-xs hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border hover:bg-secondary transition"
+              >
+                <Download className="w-3.5 h-3.5" /> Preuzmi HTML
+              </a>
+            )}
+          </div>
         </div>
 
         {/* Split: chat + preview */}
         <div className="flex-1 flex min-h-0">
           {/* Chat panel */}
-          <div className="w-[380px] border-r border-border flex flex-col bg-card/20 min-h-0">
+          <div
+            className={`${
+              active ? (mobileTab === "chat" ? "flex" : "hidden") : "flex"
+            } md:flex w-full md:w-[380px] md:border-r border-border flex-col bg-card/20 min-h-0`}
+          >
             <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
               {messages.length === 0 && !loading && (
                 <div className="text-center text-xs text-muted-foreground py-8">
