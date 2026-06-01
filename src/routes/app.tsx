@@ -257,9 +257,20 @@ function AppPage() {
   }
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
+    <div className="h-screen flex bg-background text-foreground overflow-hidden">
+      {/* Sidebar backdrop on mobile */}
+      {sidebarOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/40 z-30"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
       {/* Sidebar */}
-      <aside className="w-72 border-r border-border flex flex-col bg-card/40">
+      <aside
+        className={`fixed md:static z-40 inset-y-0 left-0 w-72 border-r border-border flex flex-col bg-card transform transition-transform md:transform-none ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
         <div className="p-4 border-b border-border flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-gradient-accent grid place-items-center">
