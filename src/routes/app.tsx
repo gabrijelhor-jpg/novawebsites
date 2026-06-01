@@ -308,6 +308,8 @@ function AppPage() {
                 onClick={() => {
                   setActiveId(it.id);
                   setPrompt("");
+                  setSidebarOpen(false);
+                  setMobileTab("preview");
                 }}
                 className="flex-1 text-left px-3 py-2 text-sm truncate"
               >
