@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Sparkles, Loader2, Plus, LogOut, Download, Trash2, Pencil, Bot, User as UserIcon, AlertCircle, Paperclip, X, FileCode, Menu, Eye, MessageSquare } from "lucide-react";
+import { ArrowUp, Sparkles, Loader2, Plus, LogOut, Download, Trash2, Pencil, Bot, User as UserIcon, AlertCircle, Paperclip, X, FileCode, Menu, Eye, MessageSquare, History, RotateCcw, Globe2, Copy, Github, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -13,6 +13,18 @@ type Generation = {
   title: string;
   prompt: string;
   html: string;
+  created_at: string;
+  public_slug?: string | null;
+  is_published?: boolean;
+  published_at?: string | null;
+};
+
+type Version = {
+  id: string;
+  generation_id: string;
+  html: string;
+  prompt: string;
+  label: string;
   created_at: string;
 };
 
@@ -44,6 +56,11 @@ function AppPage() {
   const [pricing, setPricing] = useState<{ points_per_chat: number; cents_per_1000_points: number } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
+  const [versions, setVersions] = useState<Version[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [slug, setSlug] = useState("");
+  const [actionMsg, setActionMsg] = useState("");
 
   const onPickFile = (file: File) => {
     if (!file) return;
