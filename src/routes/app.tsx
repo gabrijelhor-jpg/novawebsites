@@ -246,6 +246,7 @@ function AppPage() {
       }
 
       if (isEdit && active) {
+        await rememberVersion(active, `Prije: ${userText.slice(0, 36)}`);
         const { data: updated, error } = await supabase
           .from("generations")
           .update({ html, prompt: active.prompt + "\n\n→ " + userText })
@@ -255,8 +256,19 @@ function AppPage() {
         if (error) throw error;
         setItems((prev) => prev.map((i) => (i.id === active.id ? (updated as Generation) : i)));
         pushMessage(startKey, { role: "assistant", text: aiMessage });
+        setVersions((prev) => [
+          {
+            id: crypto.randomUUID(),
+            generation_id: active.id,
+            html: active.html,
+            prompt: active.prompt,
+            label: `Prije: ${userText.slice(0, 36)}`,
+            created_at: new Date().toISOString(),
+          },
+          ...prev,
+        ]);
       } else {
-        const title = userText.slice(0, 60);
+        const title = cleanTitle(userText);
         const { data: inserted, error } = await supabase
           .from("generations")
           .insert({ user_id: user.id, title, prompt: userText, html })
@@ -275,6 +287,13 @@ function AppPage() {
         });
         setActiveId(row.id);
         setMobileTab("preview");
+        await (supabase.from("generation_versions") as any).insert({
+          generation_id: row.id,
+          user_id: user.id,
+          html: row.html,
+          prompt: row.prompt,
+          label: "Prva verzija",
+        });
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Greška";
