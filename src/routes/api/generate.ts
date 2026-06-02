@@ -3,6 +3,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
+function stripAiNoise(value: string) {
+  return value
+    .replace(/[nN]{4,}/g, "")
+    .replace(/\n\s*[nN\s]{10,}\s*\n/g, "\n")
+    .trim();
+}
+
 export const Route = createFileRoute("/api/generate")({
   server: {
     handlers: {
@@ -163,9 +170,9 @@ export const Route = createFileRoute("/api/generate")({
         let needsInfo: string | null = null;
         try {
           const parsed = JSON.parse(raw);
-          message = typeof parsed.message === "string" ? parsed.message : "";
-          html = typeof parsed.html === "string" && parsed.html.trim() ? parsed.html : null;
-          needsInfo = typeof parsed.needsInfo === "string" && parsed.needsInfo.trim() ? parsed.needsInfo : null;
+          message = typeof parsed.message === "string" ? stripAiNoise(parsed.message) : "";
+          html = typeof parsed.html === "string" && parsed.html.trim() ? stripAiNoise(parsed.html) : null;
+          needsInfo = typeof parsed.needsInfo === "string" && parsed.needsInfo.trim() ? stripAiNoise(parsed.needsInfo) : null;
         } catch {
           // fallback: treat whole response as html
           const idx = raw.indexOf("<!DOCTYPE");
@@ -179,8 +186,21 @@ export const Route = createFileRoute("/api/generate")({
           if (idx > 0) html = html.slice(idx);
         }
 
+        let nextBalance: number | null = currentBalance;
+        if (!isFree) {
+          nextBalance = Math.max(0, currentBalance - cost);
+          await supabaseAdmin.from("user_credits").upsert(
+            {
+              user_id: userId,
+              points_balance: nextBalance,
+              total_used_points: (creditRow?.total_used_points ?? 0) + cost,
+            },
+            { onConflict: "user_id" }
+          );
+        }
+
         return new Response(
-          JSON.stringify({ message, html, needsInfo, balance: null, cost: 0 }),
+          JSON.stringify({ message, html, needsInfo, balance: nextBalance, cost }),
           { headers: { "content-type": "application/json" } }
         );
       },
