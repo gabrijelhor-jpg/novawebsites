@@ -400,6 +400,10 @@ function AppPage() {
     navigate({ to: "/" });
   };
 
+  const publicUrl = active?.public_slug
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/${active.public_slug}`
+    : "";
+
   if (authLoading || !user) {
     return (
       <div className="min-h-screen grid place-items-center bg-background">
@@ -590,6 +594,57 @@ function AppPage() {
             )}
           </div>
         </div>
+
+        {active && (historyOpen || publishOpen) && (
+          <div className="border-b border-border bg-card/70 px-4 md:px-6 py-3 grid md:grid-cols-2 gap-3">
+            {publishOpen && (
+              <div className="rounded-2xl border border-border bg-background p-3">
+                <div className="flex items-center gap-2 mb-2 text-sm font-medium"><Globe2 className="w-4 h-4" /> Hosting</div>
+                <div className="flex gap-2">
+                  <span className="hidden sm:inline text-xs text-muted-foreground self-center">/</span>
+                  <input
+                    value={slug}
+                    onChange={(e) => setSlug(makeSlug(e.target.value))}
+                    placeholder="nekawebstr"
+                    className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-card border border-border outline-none text-sm"
+                  />
+                  <button onClick={publish} className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90">Objavi</button>
+                </div>
+                {publicUrl && (
+                  <button
+                    onClick={() => navigator.clipboard?.writeText(publicUrl)}
+                    className="mt-2 text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                  >
+                    <Copy className="w-3 h-3" /> {publicUrl}
+                  </button>
+                )}
+                {actionMsg && <p className="mt-2 text-xs text-muted-foreground">{actionMsg}</p>}
+              </div>
+            )}
+            {historyOpen && (
+              <div className="rounded-2xl border border-border bg-background p-3 max-h-52 overflow-y-auto">
+                <div className="flex items-center gap-2 mb-2 text-sm font-medium"><History className="w-4 h-4" /> Povijest updatova</div>
+                {versions.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Još nema spremljenih starijih verzija.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {versions.map((v) => (
+                      <div key={v.id} className="flex items-center justify-between gap-2 rounded-lg bg-card border border-border px-2.5 py-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium truncate">{v.label}</p>
+                          <p className="text-[11px] text-muted-foreground">{new Date(v.created_at).toLocaleString("hr-HR")}</p>
+                        </div>
+                        <button onClick={() => restoreVersion(v)} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground" title="Vrati ovu verziju">
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Split: chat + preview */}
         <div className="flex-1 flex min-h-0">
