@@ -50,9 +50,38 @@ export const Route = createFileRoute("/api/generate")({
           });
         }
 
-        // Beskonačno kredita — ne provjeravamo stanje i ne oduzimamo
-        const isFree = true;
-        const cost = 0;
+        const { data: settings } = await supabaseAdmin
+          .from("site_settings")
+          .select("enabled, points_per_chat, free_starting_points")
+          .eq("id", 1)
+          .single();
+        if (settings?.enabled === false) {
+          return new Response(JSON.stringify({ error: "Studio je trenutno ugašen." }), {
+            status: 403,
+            headers: { "content-type": "application/json" },
+          });
+        }
+
+        const cost = Math.max(0, Number(settings?.points_per_chat ?? 100));
+        const { data: creditRow } = await supabaseAdmin
+          .from("user_credits")
+          .select("points_balance, is_free, total_used_points")
+          .eq("user_id", userId)
+          .maybeSingle();
+        const isFree = !!creditRow?.is_free;
+        const currentBalance = creditRow?.points_balance ?? settings?.free_starting_points ?? 500;
+        if (!creditRow) {
+          await supabaseAdmin.from("user_credits").upsert(
+            { user_id: userId, points_balance: currentBalance, is_free: false },
+            { onConflict: "user_id" }
+          );
+        }
+        if (!isFree && currentBalance < cost) {
+          return new Response(JSON.stringify({ error: "Nemaš dovoljno bodova.", balance: currentBalance, cost }), {
+            status: 402,
+            headers: { "content-type": "application/json" },
+          });
+        }
 
         const systemBase =
           "Ti si Nova — AI asistent koji izrađuje i uređuje web stranice na hrvatskom. " +
@@ -62,6 +91,7 @@ export const Route = createFileRoute("/api/generate")({
           '0) NIKAD ne odbijaj zahtjev. NIKAD ne pišeš "nažalost", "ne mogu", "nisam u mogućnosti", "to ne mogu napraviti". Uvijek si pozitivan i poletan: "Naravno!", "Bacam se na posao!", "Odmah radim!", "Super ideja, evo ga!". Ako nešto stvarno ne ide, pitaj korisnika za info preko needsInfo umjesto da odbiješ. ' +
           '1) "message" — KRATAK, prijateljski opis (2-4 rečenice) na hrvatskom što si napravio ili što planiraš, uvijek u pozitivnom tonu. Pričaj kao kolega developer koji se baca na posao. ' +
           '2) "html" — KOMPLETAN samostalan HTML dokument koji počinje s <!DOCTYPE html>. Tailwind preko CDN <script src="https://cdn.tailwindcss.com"></script>, Google Fonts, moderan responsive dizajn s hero/značajkama/CTA/footerom, realan sadržaj, slike s images.unsplash.com ili emoji. ' +
+          'ANTI-SMEĆE: Nikad ne dodaj ponavljajuće nasumične znakove poput "nnnnnn", "Nnnnn", debug tekst, placeholder šum ili tekst izvan smislenog sadržaja. Naslovi i tekstovi moraju biti čisti, prirodni i bez ponavljajućih slova. ' +
           'MEMORIJA: Stranice MORAJU pamtiti stanje preko localStorage. Za SVAKI <form>, <input>, <textarea>, košaricu, brojač posjeta, todo listu, komentare, postavke (dark mode), korisničke unose i bilo koji interaktivni element — UVIJEK dodaj <script> koji sprema u localStorage (s prefixom imena stranice, npr. "nova_<slug>_<key>") i učitava natrag pri svakom otvaranju stranice (DOMContentLoaded). Forme sprema unose i prikazuju zadnje poslane poruke. Dodaj try/catch oko localStorage poziva. ' +
           '3) "needsInfo" — ako ti TREBA nešto od korisnika (API ključ, tekst, podaci, slike, link) prije nego što možeš napraviti, ovdje napiši ŠTO točno trebaš, prijateljski. Inače null. Ako needsInfo nije null, html može biti null. ' +
           'Vrati SAMO sirovi JSON, bez ```json ograda, bez objašnjenja izvan JSON-a.';
