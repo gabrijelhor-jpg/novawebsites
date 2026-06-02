@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Sparkles, Loader2, Plus, LogOut, Download, Trash2, Pencil, Bot, User as UserIcon, AlertCircle, Paperclip, X, FileCode, Menu, Eye, MessageSquare } from "lucide-react";
+import { ArrowUp, Sparkles, Loader2, Plus, LogOut, Download, Trash2, Pencil, Bot, User as UserIcon, AlertCircle, Paperclip, X, FileCode, Menu, Eye, MessageSquare, History, RotateCcw, Globe2, Copy, Github, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import JSZip from "jszip";
 
 export const Route = createFileRoute("/app")({
   component: AppPage,
@@ -13,6 +14,18 @@ type Generation = {
   title: string;
   prompt: string;
   html: string;
+  created_at: string;
+  public_slug?: string | null;
+  is_published?: boolean;
+  published_at?: string | null;
+};
+
+type Version = {
+  id: string;
+  generation_id: string;
+  html: string;
+  prompt: string;
+  label: string;
   created_at: string;
 };
 
@@ -44,6 +57,11 @@ function AppPage() {
   const [pricing, setPricing] = useState<{ points_per_chat: number; cents_per_1000_points: number } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
+  const [versions, setVersions] = useState<Version[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [slug, setSlug] = useState("");
+  const [actionMsg, setActionMsg] = useState("");
 
   const onPickFile = (file: File) => {
     if (!file) return;
@@ -114,12 +132,57 @@ function AppPage() {
   const chatKey = activeId ?? NEW_KEY;
   const messages = chats[chatKey] ?? [];
 
+  const makeSlug = (value: string) =>
+    value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9čćžšđ\s-]/gi, "")
+      .replace(/[čć]/g, "c")
+      .replace(/ž/g, "z")
+      .replace(/š/g, "s")
+      .replace(/đ/g, "d")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 48);
+
+  const cleanTitle = (value: string) =>
+    value.replace(/[nN]{4,}/g, "").replace(/\s+/g, " ").trim().slice(0, 60) || "Nova stranica";
+
   useEffect(() => {
     chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length, loading]);
 
+  useEffect(() => {
+    setSlug(active?.public_slug ?? makeSlug(active?.title ?? ""));
+    setActionMsg("");
+  }, [active?.id, active?.public_slug, active?.title]);
+
+  useEffect(() => {
+    if (!activeId || !user) {
+      setVersions([]);
+      return;
+    }
+    (supabase.from("generation_versions") as any)
+      .select("*")
+      .eq("generation_id", activeId)
+      .order("created_at", { ascending: false })
+      .then(({ data }: { data: Version[] | null }) => setVersions(data ?? []));
+  }, [activeId, user]);
+
   const pushMessage = (key: string, msg: ChatMessage) => {
     setChats((prev) => ({ ...prev, [key]: [...(prev[key] ?? []), msg] }));
+  };
+
+  const rememberVersion = async (item: Generation, label: string) => {
+    if (!user) return;
+    await (supabase.from("generation_versions") as any).insert({
+      generation_id: item.id,
+      user_id: user.id,
+      html: item.html,
+      prompt: item.prompt,
+      label,
+    });
   };
 
   const generate = async () => {
@@ -188,6 +251,7 @@ function AppPage() {
       }
 
       if (isEdit && active) {
+        await rememberVersion(active, `Prije: ${userText.slice(0, 36)}`);
         const { data: updated, error } = await supabase
           .from("generations")
           .update({ html, prompt: active.prompt + "\n\n→ " + userText })
@@ -197,8 +261,19 @@ function AppPage() {
         if (error) throw error;
         setItems((prev) => prev.map((i) => (i.id === active.id ? (updated as Generation) : i)));
         pushMessage(startKey, { role: "assistant", text: aiMessage });
+        setVersions((prev) => [
+          {
+            id: crypto.randomUUID(),
+            generation_id: active.id,
+            html: active.html,
+            prompt: active.prompt,
+            label: `Prije: ${userText.slice(0, 36)}`,
+            created_at: new Date().toISOString(),
+          },
+          ...prev,
+        ]);
       } else {
-        const title = userText.slice(0, 60);
+        const title = cleanTitle(userText);
         const { data: inserted, error } = await supabase
           .from("generations")
           .insert({ user_id: user.id, title, prompt: userText, html })
@@ -217,6 +292,13 @@ function AppPage() {
         });
         setActiveId(row.id);
         setMobileTab("preview");
+        await (supabase.from("generation_versions") as any).insert({
+          generation_id: row.id,
+          user_id: user.id,
+          html: row.html,
+          prompt: row.prompt,
+          label: "Prva verzija",
+        });
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Greška";
@@ -244,10 +326,83 @@ function AppPage() {
     if (activeId === id) setActiveId(null);
   };
 
+  const downloadZip = async (gitReady = false) => {
+    if (!active) return;
+    const css = Array.from(active.html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)).map((m) => m[1]).join("\n\n");
+    const js = Array.from(active.html.matchAll(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi)).map((m) => m[1]).join("\n\n");
+    const html = active.html
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+      .replace(/<script(?![^>]*src=)[^>]*>[\s\S]*?<\/script>/gi, "")
+      .replace("</head>", '  <link rel="stylesheet" href="styles.css">\n</head>')
+      .replace("</body>", '  <script src="script.js"></script>\n</body>');
+    const zip = new JSZip();
+    zip.file("index.html", html);
+    zip.file("styles.css", css || "/* CSS je već preko CDN-a ili inline klasa. */\n");
+    zip.file("script.js", js || "// JavaScript za stranicu.\n");
+    zip.file("original.html", active.html);
+    zip.file("README.md", `# ${active.title}\n\nExportirano iz Nova studija.\n\n## Pokretanje\nOtvori index.html u browseru ili deployaj folder na bilo koji static hosting.\n`);
+    if (gitReady) {
+      zip.file(".gitignore", "node_modules\n.DS_Store\ndist\n");
+      zip.file("package.json", JSON.stringify({ scripts: { dev: "vite --host 0.0.0.0", build: "vite build", preview: "vite preview" }, dependencies: { "@vitejs/plugin-react": "latest", vite: "latest", typescript: "latest" }, devDependencies: {} }, null, 2));
+      zip.file("src/main.js", "import '../styles.css';\n");
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${makeSlug(active.title) || "nova-stranica"}${gitReady ? "-git" : ""}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const publish = async () => {
+    if (!active) return;
+    const cleanSlug = makeSlug(slug || active.public_slug || active.title);
+    if (!cleanSlug) {
+      setActionMsg("Upiši ispravno ime stranice.");
+      return;
+    }
+    setActionMsg("");
+    const { data, error } = await supabase
+      .from("generations")
+      .update({ public_slug: cleanSlug, is_published: true, published_at: new Date().toISOString() } as any)
+      .eq("id", active.id)
+      .select()
+      .single();
+    if (error) {
+      setActionMsg(error.message.includes("duplicate") ? "To ime je već zauzeto." : error.message);
+      return;
+    }
+    setItems((prev) => prev.map((i) => (i.id === active.id ? (data as Generation) : i)));
+    setSlug(cleanSlug);
+    setActionMsg(`Objavljeno na /${cleanSlug}`);
+  };
+
+  const restoreVersion = async (version: Version) => {
+    if (!active) return;
+    await rememberVersion(active, "Prije vraćanja verzije");
+    const { data, error } = await supabase
+      .from("generations")
+      .update({ html: version.html, prompt: `${active.prompt}\n\n→ Vraćeno na: ${version.label}` })
+      .eq("id", active.id)
+      .select()
+      .single();
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setItems((prev) => prev.map((i) => (i.id === active.id ? (data as Generation) : i)));
+    pushMessage(active.id, { role: "assistant", text: `Vratio sam verziju: ${version.label}` });
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
     navigate({ to: "/" });
   };
+
+  const publicUrl = active?.public_slug
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/${active.public_slug}`
+    : "";
 
   if (authLoading || !user) {
     return (
@@ -403,16 +558,93 @@ function AppPage() {
               </div>
             )}
             {active && (
-              <a
-                href={`data:text/html;charset=utf-8,${encodeURIComponent(active.html)}`}
-                download={`${active.title || "nova"}.html`}
-                className="text-xs hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border hover:bg-secondary transition"
-              >
-                <Download className="w-3.5 h-3.5" /> Preuzmi HTML
-              </a>
+              <>
+                <button
+                  onClick={() => setHistoryOpen((v) => !v)}
+                  className="text-xs hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border hover:bg-secondary transition"
+                >
+                  <History className="w-3.5 h-3.5" /> Povijest
+                </button>
+                <button
+                  onClick={() => setPublishOpen((v) => !v)}
+                  className="text-xs hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border hover:bg-secondary transition"
+                >
+                  <Globe2 className="w-3.5 h-3.5" /> Hostaj
+                </button>
+                <button
+                  onClick={() => downloadZip(false)}
+                  className="text-xs hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border hover:bg-secondary transition"
+                >
+                  <Package className="w-3.5 h-3.5" /> ZIP
+                </button>
+                <button
+                  onClick={() => downloadZip(true)}
+                  className="text-xs hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border hover:bg-secondary transition"
+                >
+                  <Github className="w-3.5 h-3.5" /> Git export
+                </button>
+                <a
+                  href={`data:text/html;charset=utf-8,${encodeURIComponent(active.html)}`}
+                  download={`${active.title || "nova"}.html`}
+                  className="text-xs hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border hover:bg-secondary transition"
+                >
+                  <Download className="w-3.5 h-3.5" /> HTML
+                </a>
+              </>
             )}
           </div>
         </div>
+
+        {active && (historyOpen || publishOpen) && (
+          <div className="border-b border-border bg-card/70 px-4 md:px-6 py-3 grid md:grid-cols-2 gap-3">
+            {publishOpen && (
+              <div className="rounded-2xl border border-border bg-background p-3">
+                <div className="flex items-center gap-2 mb-2 text-sm font-medium"><Globe2 className="w-4 h-4" /> Hosting</div>
+                <div className="flex gap-2">
+                  <span className="hidden sm:inline text-xs text-muted-foreground self-center">/</span>
+                  <input
+                    value={slug}
+                    onChange={(e) => setSlug(makeSlug(e.target.value))}
+                    placeholder="nekawebstr"
+                    className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-card border border-border outline-none text-sm"
+                  />
+                  <button onClick={publish} className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90">Objavi</button>
+                </div>
+                {publicUrl && (
+                  <button
+                    onClick={() => navigator.clipboard?.writeText(publicUrl)}
+                    className="mt-2 text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                  >
+                    <Copy className="w-3 h-3" /> {publicUrl}
+                  </button>
+                )}
+                {actionMsg && <p className="mt-2 text-xs text-muted-foreground">{actionMsg}</p>}
+              </div>
+            )}
+            {historyOpen && (
+              <div className="rounded-2xl border border-border bg-background p-3 max-h-52 overflow-y-auto">
+                <div className="flex items-center gap-2 mb-2 text-sm font-medium"><History className="w-4 h-4" /> Povijest updatova</div>
+                {versions.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Još nema spremljenih starijih verzija.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {versions.map((v) => (
+                      <div key={v.id} className="flex items-center justify-between gap-2 rounded-lg bg-card border border-border px-2.5 py-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium truncate">{v.label}</p>
+                          <p className="text-[11px] text-muted-foreground">{new Date(v.created_at).toLocaleString("hr-HR")}</p>
+                        </div>
+                        <button onClick={() => restoreVersion(v)} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground" title="Vrati ovu verziju">
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Split: chat + preview */}
         <div className="flex-1 flex min-h-0">

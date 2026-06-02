@@ -14,12 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      generation_versions: {
+        Row: {
+          created_at: string
+          generation_id: string
+          html: string
+          id: string
+          label: string
+          prompt: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          generation_id: string
+          html: string
+          id?: string
+          label?: string
+          prompt?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          generation_id?: string
+          html?: string
+          id?: string
+          label?: string
+          prompt?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       generations: {
         Row: {
           created_at: string
           html: string
           id: string
+          is_published: boolean
           prompt: string
+          public_slug: string | null
+          published_at: string | null
           title: string
           updated_at: string
           user_id: string
@@ -28,7 +61,10 @@ export type Database = {
           created_at?: string
           html: string
           id?: string
+          is_published?: boolean
           prompt: string
+          public_slug?: string | null
+          published_at?: string | null
           title?: string
           updated_at?: string
           user_id: string
@@ -37,7 +73,10 @@ export type Database = {
           created_at?: string
           html?: string
           id?: string
+          is_published?: boolean
           prompt?: string
+          public_slug?: string | null
+          published_at?: string | null
           title?: string
           updated_at?: string
           user_id?: string
