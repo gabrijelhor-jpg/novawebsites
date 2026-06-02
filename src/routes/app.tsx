@@ -321,6 +321,75 @@ function AppPage() {
     if (activeId === id) setActiveId(null);
   };
 
+  const downloadZip = async (gitReady = false) => {
+    if (!active) return;
+    const css = Array.from(active.html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)).map((m) => m[1]).join("\n\n");
+    const js = Array.from(active.html.matchAll(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi)).map((m) => m[1]).join("\n\n");
+    const html = active.html
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+      .replace(/<script(?![^>]*src=)[^>]*>[\s\S]*?<\/script>/gi, "")
+      .replace("</head>", '  <link rel="stylesheet" href="styles.css">\n</head>')
+      .replace("</body>", '  <script src="script.js"></script>\n</body>');
+    const zip = new JSZip();
+    zip.file("index.html", html);
+    zip.file("styles.css", css || "/* CSS je već preko CDN-a ili inline klasa. */\n");
+    zip.file("script.js", js || "// JavaScript za stranicu.\n");
+    zip.file("original.html", active.html);
+    zip.file("README.md", `# ${active.title}\n\nExportirano iz Nova studija.\n\n## Pokretanje\nOtvori index.html u browseru ili deployaj folder na bilo koji static hosting.\n`);
+    if (gitReady) {
+      zip.file(".gitignore", "node_modules\n.DS_Store\ndist\n");
+      zip.file("package.json", JSON.stringify({ scripts: { dev: "vite --host 0.0.0.0", build: "vite build", preview: "vite preview" }, dependencies: { "@vitejs/plugin-react": "latest", vite: "latest", typescript: "latest" }, devDependencies: {} }, null, 2));
+      zip.file("src/main.js", "import '../styles.css';\n");
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${makeSlug(active.title) || "nova-stranica"}${gitReady ? "-git" : ""}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const publish = async () => {
+    if (!active) return;
+    const cleanSlug = makeSlug(slug || active.public_slug || active.title);
+    if (!cleanSlug) {
+      setActionMsg("Upiši ispravno ime stranice.");
+      return;
+    }
+    setActionMsg("");
+    const { data, error } = await supabase
+      .from("generations")
+      .update({ public_slug: cleanSlug, is_published: true, published_at: new Date().toISOString() } as any)
+      .eq("id", active.id)
+      .select()
+      .single();
+    if (error) {
+      setActionMsg(error.message.includes("duplicate") ? "To ime je već zauzeto." : error.message);
+      return;
+    }
+    setItems((prev) => prev.map((i) => (i.id === active.id ? (data as Generation) : i)));
+    setSlug(cleanSlug);
+    setActionMsg(`Objavljeno na /${cleanSlug}`);
+  };
+
+  const restoreVersion = async (version: Version) => {
+    if (!active) return;
+    await rememberVersion(active, "Prije vraćanja verzije");
+    const { data, error } = await supabase
+      .from("generations")
+      .update({ html: version.html, prompt: `${active.prompt}\n\n→ Vraćeno na: ${version.label}` })
+      .eq("id", active.id)
+      .select()
+      .single();
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setItems((prev) => prev.map((i) => (i.id === active.id ? (data as Generation) : i)));
+    pushMessage(active.id, { role: "assistant", text: `Vratio sam verziju: ${version.label}` });
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
     navigate({ to: "/" });
