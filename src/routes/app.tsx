@@ -132,12 +132,52 @@ function AppPage() {
   const chatKey = activeId ?? NEW_KEY;
   const messages = chats[chatKey] ?? [];
 
+  const makeSlug = (value: string) =>
+    value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9čćžšđ\s-]/gi, "")
+      .replace(/[čć]/g, "c")
+      .replace(/ž/g, "z")
+      .replace(/š/g, "s")
+      .replace(/đ/g, "d")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 48);
+
+  const cleanTitle = (value: string) =>
+    value.replace(/[nN]{4,}/g, "").replace(/\s+/g, " ").trim().slice(0, 60) || "Nova stranica";
+
   useEffect(() => {
     chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length, loading]);
 
+  useEffect(() => {
+    if (!activeId || !user) {
+      setVersions([]);
+      return;
+    }
+    (supabase.from("generation_versions") as any)
+      .select("*")
+      .eq("generation_id", activeId)
+      .order("created_at", { ascending: false })
+      .then(({ data }: { data: Version[] | null }) => setVersions(data ?? []));
+  }, [activeId, user]);
+
   const pushMessage = (key: string, msg: ChatMessage) => {
     setChats((prev) => ({ ...prev, [key]: [...(prev[key] ?? []), msg] }));
+  };
+
+  const rememberVersion = async (item: Generation, label: string) => {
+    if (!user) return;
+    await (supabase.from("generation_versions") as any).insert({
+      generation_id: item.id,
+      user_id: user.id,
+      html: item.html,
+      prompt: item.prompt,
+      label,
+    });
   };
 
   const generate = async () => {
