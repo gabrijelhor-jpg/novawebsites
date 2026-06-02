@@ -7,8 +7,7 @@ export const getPublishedSite = createServerFn({ method: "GET" })
   }))
   .handler(async ({ data }) => {
     if (!/^[a-z0-9-]{1,48}$/.test(data.slug)) return null;
-    const { data: site, error } = await supabaseAdmin
-      .from("generations")
+    const { data: site, error } = await (supabaseAdmin.from("generations") as any)
       .select("title, html, public_slug, updated_at")
       .eq("is_published", true)
       .ilike("public_slug", data.slug)
