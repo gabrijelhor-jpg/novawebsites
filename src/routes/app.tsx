@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Sparkles, Loader2, Plus, LogOut, Download, Trash2, Pencil, Bot, User as UserIcon, AlertCircle, Paperclip, X, FileCode, Menu, Eye, MessageSquare, History, RotateCcw, Globe2, Copy, Github, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import JSZip from "jszip";
 
 export const Route = createFileRoute("/app")({
   component: AppPage,
