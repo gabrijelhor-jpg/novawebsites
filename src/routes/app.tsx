@@ -154,6 +154,11 @@ function AppPage() {
   }, [messages.length, loading]);
 
   useEffect(() => {
+    setSlug(active?.public_slug ?? makeSlug(active?.title ?? ""));
+    setActionMsg("");
+  }, [active?.id, active?.public_slug, active?.title]);
+
+  useEffect(() => {
     if (!activeId || !user) {
       setVersions([]);
       return;
@@ -549,13 +554,39 @@ function AppPage() {
               </div>
             )}
             {active && (
-              <a
-                href={`data:text/html;charset=utf-8,${encodeURIComponent(active.html)}`}
-                download={`${active.title || "nova"}.html`}
-                className="text-xs hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border hover:bg-secondary transition"
-              >
-                <Download className="w-3.5 h-3.5" /> Preuzmi HTML
-              </a>
+              <>
+                <button
+                  onClick={() => setHistoryOpen((v) => !v)}
+                  className="text-xs hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border hover:bg-secondary transition"
+                >
+                  <History className="w-3.5 h-3.5" /> Povijest
+                </button>
+                <button
+                  onClick={() => setPublishOpen((v) => !v)}
+                  className="text-xs hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border hover:bg-secondary transition"
+                >
+                  <Globe2 className="w-3.5 h-3.5" /> Hostaj
+                </button>
+                <button
+                  onClick={() => downloadZip(false)}
+                  className="text-xs hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border hover:bg-secondary transition"
+                >
+                  <Package className="w-3.5 h-3.5" /> ZIP
+                </button>
+                <button
+                  onClick={() => downloadZip(true)}
+                  className="text-xs hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border hover:bg-secondary transition"
+                >
+                  <Github className="w-3.5 h-3.5" /> Git export
+                </button>
+                <a
+                  href={`data:text/html;charset=utf-8,${encodeURIComponent(active.html)}`}
+                  download={`${active.title || "nova"}.html`}
+                  className="text-xs hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border hover:bg-secondary transition"
+                >
+                  <Download className="w-3.5 h-3.5" /> HTML
+                </a>
+              </>
             )}
           </div>
         </div>
