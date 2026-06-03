@@ -25,7 +25,7 @@ function PublishedSitePage() {
     <iframe
       title={site.title}
       srcDoc={site.html}
-      className="fixed inset-0 h-screen w-screen border-0 bg-background"
+      className="fixed inset-0 h-screen w-screen border-0 bg-white"
       sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
     />
   );

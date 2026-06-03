@@ -822,7 +822,7 @@ function AppPage() {
               <iframe
                 title="Preview"
                 srcDoc={active.html}
-                className="w-full h-full rounded-2xl bg-card border border-border shadow-soft"
+                className="w-full h-full rounded-2xl bg-white border border-border shadow-soft"
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
               />
             ) : (

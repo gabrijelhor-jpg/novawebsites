@@ -4,30 +4,10 @@ import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 function stripAiNoise(value: string) {
-  if (!value) return value;
-  let out = value;
-  // collapse any 3+ same letters to 2 ("nnnnn" -> "nn", "Aaaa" -> "Aa")
-  out = out.replace(/([A-Za-zČĆŠĐŽčćšđž])\1{2,}/g, "$1$1");
-  // remove "words" made of only repeated single letter (length>=4)
-  out = out.replace(/\b([A-Za-zČĆŠĐŽčćšđž])\1{3,}\b/g, "");
-  // drop any line that is >60% the same single character
-  out = out
-    .split("\n")
-    .filter((line) => {
-      const t = line.trim();
-      if (t.length < 6) return true;
-      const counts: Record<string, number> = {};
-      for (const ch of t) {
-        if (/[A-Za-zČĆŠĐŽčćšđž]/.test(ch)) counts[ch.toLowerCase()] = (counts[ch.toLowerCase()] ?? 0) + 1;
-      }
-      const max = Math.max(0, ...Object.values(counts));
-      const letters = Object.values(counts).reduce((a, b) => a + b, 0);
-      return letters === 0 || max / letters < 0.6;
-    })
-    .join("\n");
-  // collapse multiple spaces
-  out = out.replace(/[ \t]{3,}/g, " ").replace(/\n{3,}/g, "\n\n");
-  return out.trim();
+  return value
+    .replace(/[nN]{4,}/g, "")
+    .replace(/\n\s*[nN\s]{10,}\s*\n/g, "\n")
+    .trim();
 }
 
 export const Route = createFileRoute("/api/generate")({
