@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_users: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          password_hash: string
+          password_salt: string
+          role: Database["public"]["Enums"]["admin_role"]
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          password_hash: string
+          password_salt: string
+          role?: Database["public"]["Enums"]["admin_role"]
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          password_hash?: string
+          password_salt?: string
+          role?: Database["public"]["Enums"]["admin_role"]
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
       generation_versions: {
         Row: {
           created_at: string
@@ -110,6 +143,42 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_plans: {
+        Row: {
+          active: boolean
+          created_at: string
+          name: string
+          points: number
+          price_cents: number
+          slug: string
+          sort_order: number
+          stripe_price_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          name: string
+          points: number
+          price_cents: number
+          slug: string
+          sort_order?: number
+          stripe_price_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          name?: string
+          points?: number
+          price_cents?: number
+          slug?: string
+          sort_order?: number
+          stripe_price_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_credits: {
         Row: {
           created_at: string
@@ -140,6 +209,65 @@ export type Database = {
         }
         Relationships: []
       }
+      user_subscriptions: {
+        Row: {
+          amount_cents: number | null
+          approved_at: string | null
+          created_at: string
+          current_period_end: string | null
+          id: string
+          note: string | null
+          plan_slug: string
+          points: number | null
+          reference_code: string | null
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents?: number | null
+          approved_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          note?: string | null
+          plan_slug: string
+          points?: number | null
+          reference_code?: string | null
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number | null
+          approved_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          note?: string | null
+          plan_slug?: string
+          points?: number | null
+          reference_code?: string | null
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_subscriptions_plan_slug_fkey"
+            columns: ["plan_slug"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -148,7 +276,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      admin_role: "owner" | "admin" | "viewer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -275,6 +403,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      admin_role: ["owner", "admin", "viewer"],
+    },
   },
 } as const

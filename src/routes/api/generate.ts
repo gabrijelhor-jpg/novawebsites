@@ -4,9 +4,15 @@ import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 function stripAiNoise(value: string) {
+  if (!value) return value;
   return value
-    .replace(/[nN]{4,}/g, "")
-    .replace(/\n\s*[nN\s]{10,}\s*\n/g, "\n")
+    // collapse any letter repeated 4+ times in a row down to 2 (handles nnnn, NNNN, aaaa, etc.)
+    .replace(/([A-Za-zČĆŠĐŽčćšđž])\1{3,}/g, "$1$1")
+    // remove "words" that are just one letter repeated many times
+    .replace(/\b([A-Za-zČĆŠĐŽčćšđž])\1{2,}\b/g, "")
+    // collapse leftover whitespace runs
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 

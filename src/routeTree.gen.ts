@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PretplataRouteImport } from './routes/pretplata'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -17,6 +18,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiGenerateRouteImport } from './routes/api/generate'
 import { Route as ApiAdminRouteImport } from './routes/api/admin'
 
+const PretplataRoute = PretplataRouteImport.update({
+  id: '/pretplata',
+  path: '/pretplata',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/pretplata': typeof PretplataRoute
   '/api/admin': typeof ApiAdminRoute
   '/api/generate': typeof ApiGenerateRoute
 }
@@ -68,6 +75,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/pretplata': typeof PretplataRoute
   '/api/admin': typeof ApiAdminRoute
   '/api/generate': typeof ApiGenerateRoute
 }
@@ -78,6 +86,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/pretplata': typeof PretplataRoute
   '/api/admin': typeof ApiAdminRoute
   '/api/generate': typeof ApiGenerateRoute
 }
@@ -89,10 +98,19 @@ export interface FileRouteTypes {
     | '/admin'
     | '/app'
     | '/auth'
+    | '/pretplata'
     | '/api/admin'
     | '/api/generate'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$' | '/admin' | '/app' | '/auth' | '/api/admin' | '/api/generate'
+  to:
+    | '/'
+    | '/$'
+    | '/admin'
+    | '/app'
+    | '/auth'
+    | '/pretplata'
+    | '/api/admin'
+    | '/api/generate'
   id:
     | '__root__'
     | '/'
@@ -100,6 +118,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/app'
     | '/auth'
+    | '/pretplata'
     | '/api/admin'
     | '/api/generate'
   fileRoutesById: FileRoutesById
@@ -110,12 +129,20 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   AppRoute: typeof AppRoute
   AuthRoute: typeof AuthRoute
+  PretplataRoute: typeof PretplataRoute
   ApiAdminRoute: typeof ApiAdminRoute
   ApiGenerateRoute: typeof ApiGenerateRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/pretplata': {
+      id: '/pretplata'
+      path: '/pretplata'
+      fullPath: '/pretplata'
+      preLoaderRoute: typeof PretplataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -174,6 +201,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   AppRoute: AppRoute,
   AuthRoute: AuthRoute,
+  PretplataRoute: PretplataRoute,
   ApiAdminRoute: ApiAdminRoute,
   ApiGenerateRoute: ApiGenerateRoute,
 }
