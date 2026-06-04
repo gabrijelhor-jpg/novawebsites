@@ -87,12 +87,12 @@ export const Route = createFileRoute("/api/admin")({
               const cents = Number(body.cents_per_1000_points);
               const ppc = Number(body.points_per_chat);
               const start = Number(body.free_starting_points);
-              const patch: Record<string, any> = { updated_at: new Date().toISOString() };
+              const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
               if (Number.isFinite(cents) && cents >= 0) patch.cents_per_1000_points = Math.floor(cents);
               if (Number.isFinite(ppc) && ppc > 0) patch.points_per_chat = Math.floor(ppc);
               if (Number.isFinite(start) && start >= 0) patch.free_starting_points = Math.floor(start);
               const { data, error } = await supabaseAdmin
-                .from("site_settings").update(patch).eq("id", 1).select().single();
+                .from("site_settings").update(patch as any).eq("id", 1).select().single();
               if (error) throw error;
               return Response.json({ settings: data });
             }
@@ -233,7 +233,7 @@ export const Route = createFileRoute("/api/admin")({
               requireOwner();
               const id: string = body.id;
               if (!id) throw new Error("id je obavezan");
-              const patch: Record<string, any> = { updated_at: new Date().toISOString() };
+              const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
               if (body.role && ["admin", "viewer"].includes(body.role)) patch.role = body.role;
               if (body.password) {
                 if (String(body.password).length < 6) throw new Error("Lozinka mora imati barem 6 znakova.");
@@ -244,7 +244,7 @@ export const Route = createFileRoute("/api/admin")({
               // Prevent demoting/changing owner
               const { data: target } = await supabaseAdmin.from("admin_users").select("role").eq("id", id).single();
               if (target?.role === "owner") throw new Error("Vlasnika nije moguće mijenjati.");
-              const { error } = await supabaseAdmin.from("admin_users").update(patch).eq("id", id);
+              const { error } = await supabaseAdmin.from("admin_users").update(patch as any).eq("id", id);
               if (error) throw error;
               return Response.json({ ok: true });
             }
@@ -271,7 +271,7 @@ export const Route = createFileRoute("/api/admin")({
               requireEdit();
               const slug = String(body.slug ?? "").trim().toLowerCase();
               if (!/^[a-z0-9_-]{2,32}$/.test(slug)) throw new Error("Neispravan slug.");
-              const row = {
+              const row: Record<string, unknown> = {
                 slug,
                 name: String(body.name ?? slug),
                 price_cents: Math.max(0, Math.floor(Number(body.price_cents ?? 0))),
@@ -281,7 +281,7 @@ export const Route = createFileRoute("/api/admin")({
                 updated_at: new Date().toISOString(),
               };
               const { error } = await supabaseAdmin
-                .from("subscription_plans").upsert(row, { onConflict: "slug" });
+                .from("subscription_plans").upsert(row as any, { onConflict: "slug" });
               if (error) throw error;
               return Response.json({ ok: true });
             }
