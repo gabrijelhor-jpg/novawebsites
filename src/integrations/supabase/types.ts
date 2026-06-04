@@ -211,10 +211,15 @@ export type Database = {
       }
       user_subscriptions: {
         Row: {
+          amount_cents: number | null
+          approved_at: string | null
           created_at: string
           current_period_end: string | null
           id: string
+          note: string | null
           plan_slug: string
+          points: number | null
+          reference_code: string | null
           status: string
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
@@ -222,10 +227,15 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          amount_cents?: number | null
+          approved_at?: string | null
           created_at?: string
           current_period_end?: string | null
           id?: string
+          note?: string | null
           plan_slug: string
+          points?: number | null
+          reference_code?: string | null
           status?: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -233,10 +243,15 @@ export type Database = {
           user_id: string
         }
         Update: {
+          amount_cents?: number | null
+          approved_at?: string | null
           created_at?: string
           current_period_end?: string | null
           id?: string
+          note?: string | null
           plan_slug?: string
+          points?: number | null
+          reference_code?: string | null
           status?: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
