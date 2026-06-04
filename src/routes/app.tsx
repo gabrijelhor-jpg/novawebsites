@@ -501,6 +501,12 @@ function AppPage() {
               )}
             </div>
           )}
+          <Link
+            to="/pretplata"
+            className="block text-center text-xs px-2 py-2 rounded-lg bg-gradient-accent text-accent-foreground hover:opacity-90 transition"
+          >
+            ✦ Dopuni bodove / pretplata
+          </Link>
           <div className="flex items-center justify-between gap-2 px-2">
             <span className="text-xs text-muted-foreground truncate">{user.email}</span>
             <button
