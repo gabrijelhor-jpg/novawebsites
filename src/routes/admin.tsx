@@ -300,6 +300,24 @@ function AdminPage() {
       </header>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {payments.filter((p) => p.status === "pending").length > 0 && (
+          <button
+            onClick={() => setTab("payments")}
+            className="w-full mb-6 flex items-center justify-between gap-3 px-5 py-4 rounded-2xl bg-amber-500/10 border border-amber-500/40 hover:bg-amber-500/15 transition text-left"
+          >
+            <div className="flex items-center gap-3">
+              <Wallet className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              <div>
+                <div className="font-display text-base text-amber-700 dark:text-amber-300">
+                  {payments.filter((p) => p.status === "pending").length} uplat{payments.filter((p) => p.status === "pending").length === 1 ? "a čeka" : "e čekaju"} tvoju potvrdu
+                </div>
+                <div className="text-xs text-muted-foreground">Provjeri IBAN, klikni "Potvrdi" i korisnik odmah dobije bodove.</div>
+              </div>
+            </div>
+            <span className="text-xs px-3 py-1.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">Otvori →</span>
+          </button>
+        )}
+
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <StatCard icon={<DollarSign className="w-4 h-4" />} label="Ukupno skupljeno" value={eur(stats.total_paid_cents)} />
