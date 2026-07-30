@@ -1,41 +1,47 @@
+# Stripe plaćanje karticom za bodove (tvoj API ključ)
 
 ## Cilj
-Ti (admin) klikneš jedan gumb kad ti uplata sjedne na IBAN — sustav odmah aktivira korisnikovu pretplatu, doda mu bodove i pošalje mu mail da je pretplata aktivna. Stripe se ne dira jer nisi punoljetan.
+Korisnik na `/pretplata` bira plan i može platiti karticom preko Stripea (mjesečna pretplata). Kad uplata prođe, bodovi mu se automatski dodaju. Postojeći IBAN tok s admin odobrenjem ostaje kao druga opcija.
 
-## Što se mijenja
+## Prije koda: treba mi tvoj Stripe ključ
+Kad odobriš plan, otvorit ću ti sigurnu formu za unos `STRIPE_SECRET_KEY` (počinje sa `sk_test_` ili `sk_live_`). Ključ nikad ne ide u kod ni u chat — sprema se kao tajna varijabla na serveru.
 
-### 1) Admin panel (`/admin`) — sekcija "Pretplate na čekanju"
-- Nova lista svih `user_subscriptions` sa statusom `pending`: prikazuje email korisnika, plan, iznos, poziv na broj, datum.
-- Dva gumba po retku:
-  - **Odobri** → poziva serverFn `approveSubscription`
-  - **Odbij** → poziva serverFn `rejectSubscription` (uz opcionalnu napomenu)
-- Posebna kartica iznad: brojač "X uplata čeka tvoj pregled".
+Napomena: pošto nemaš 18, Stripe račun mora biti otvoren na nekoga tko smije (roditelj/firma) — kod radi jednako s test ključem dok to ne riješiš.
 
-### 2) Server logika (`approveSubscription`)
-Jedna serverFn koja s admin pravima napravi sve u jednoj transakciji:
-- Postavi `user_subscriptions.status = 'active'`, `approved_at = now()`, `current_period_end = now() + 30 dana`.
-- Doda `user_subscriptions.points` na `user_credits.points_balance` korisnika.
-- Poveća `user_credits.total_paid_cents` za iznos uplate.
-- Pošalje email korisniku s temom "Tvoja Nova pretplata je aktivna" i sažetkom (plan, bodovi, do kada vrijedi).
+## Što se gradi
 
-`rejectSubscription` samo označi `status = 'rejected'` + spremi razlog u `note`. Ne šalje mail (ili šalje "uplata nije primljena" — pitat ću po potrebi, default = ne šalje).
+### 1) `/pretplata` — dva načina plaćanja
+Svaki plan dobiva dva gumba:
+- **Plati karticom** → otvara Stripe Checkout (broj kartice, CVC, datum unosi se na Stripeovoj sigurnoj stranici, ne kod nas — tako nalaže PCI-DSS)
+- **Plati na IBAN** → postojeći tok s pozivom na broj i admin odobrenjem (nepromijenjen)
 
-### 3) Email obavijest
-- Koristim ugrađenu Lovable email infrastrukturu (ne traži vanjski API ključ).
-- Prvi korak: postavljanje email domene (ti samo klikneš "Set up email domain" — dobiješ npr. `notify.tvoja-domena.com`). Dok DNS ne prođe, mail se zapisuje u red i kreće čim domena postane aktivna.
-- Template: `subscription-activated.tsx` u `src/lib/email-templates/` — brendiran u Nova stilu (tamna pozadina, gradient akcent), prikazuje ime plana, broj dobivenih bodova, datum isteka, link na `/app`.
+Nakon plaćanja Stripe vraća korisnika na `/pretplata?stripe=success` uz poruku "Pretplata aktivna, bodovi dodani".
 
-### 4) Sitno UX
-- Na `/pretplata` ispod uputa za uplatu dodajem rečenicu: "Čim primimo uplatu (obično isti dan), aktivirat ćemo ti pretplatu i poslati mail."
-- U adminu povijest svih pretplata ostaje vidljiva s statusom (pending/active/rejected).
+### 2) Server logika
+- `createCheckoutSession` (server funkcija): uzima plan, kreira/nalazi Stripe kupca za prijavljenog korisnika, otvara mjesečnu subscription Checkout sesiju u EUR i vraća URL.
+- Cijena: koristi `subscription_plans.stripe_price_id` ako postoji; ako je prazan, automatski kreira Price u Stripeu iz `price_cents` i zapiše ga natrag u tablicu — znači cijene i dalje mijenjaš u admin panelu.
+- Webhook `/api/public/stripe-webhook` (potpis se provjerava):
+  - `checkout.session.completed` → upiše `user_subscriptions` red sa `status = 'active'`, `stripe_customer_id`, `stripe_subscription_id`, `current_period_end`, doda bodove na `user_credits.points_balance`, poveća `total_paid_cents`
+  - `invoice.paid` (obnova svaki mjesec) → ponovno doda bodove i pomakne `current_period_end`
+  - `customer.subscription.deleted` / `invoice.payment_failed` → status `expired` / `past_due`
+  - Idempotencija po Stripe event ID-u da se bodovi ne dupliraju
+
+### 3) Admin panel
+- U kartici "Planovi" prikazuje se `stripe_price_id` po planu (read-only, s gumbom "Resetiraj" ako promijeniš cijenu).
+- U kartici "Plaćanja" uz IBAN uplate vide se i Stripe pretplate (izvor: kartica / IBAN), status, iznos i datum obnove.
+- Gumb "Otkaži pretplatu" za Stripe pretplate (otkazuje na kraju perioda).
+
+### 4) Korisnik u studiju
+- U `/app` sidebaru pored stanja bodova prikaz aktivnog plana i datuma obnove.
 
 ## Tehnički detalji
-- Nova serverFn datoteka: `src/lib/subscriptions.functions.ts` (`approveSubscription`, `rejectSubscription`) — koristi `supabaseAdmin` jer trebamo bypass RLS-a za pisanje u `user_credits` tuđeg korisnika; ulaz se prvo provjerava kroz admin sesiju (isti pattern kao postojeći admin endpointi u `src/routes/api/admin.ts`).
-- Migracija: dodati `UPDATE` policy na `user_subscriptions` za `service_role` (već ima `ALL` kroz service role, pa vjerojatno samo provjera). Dodati `UPDATE` na `user_credits` preko service_role (već ima implicitno, ali eksplicitno radi jasnoće — ako linter prijavi, ostavlja se).
-- Email: `email_domain--scaffold_transactional_email` + custom template; trigger se zove iz `approveSubscription` preko `/lovable/email/transactional/send` s idempotency keyem `sub-activated-<subscription_id>`.
-- Korisnikov email se dohvaća iz `auth.users` preko `supabaseAdmin.auth.admin.getUserById(user_id)`.
+- Paket: `stripe` (Node SDK, radi na edge runtimeu preko fetch klijenta).
+- Nova datoteka `src/lib/stripe.server.ts` (klijent, čita `process.env.STRIPE_SECRET_KEY` unutar handlera) i `src/lib/billing.functions.ts` (`createCheckoutSession`, `cancelSubscription`).
+- Webhook kao TanStack server ruta `src/routes/api/public/stripe-webhook.ts`, potpis se provjerava preko `STRIPE_WEBHOOK_SECRET` (drugi secret koji ću tražiti; do tada webhook odbija zahtjeve).
+- Migracija: nova tablica `stripe_events (id text primary key, created_at)` za idempotenciju + GRANT za `service_role`. Postojeće `stripe_price_id`, `stripe_customer_id`, `stripe_subscription_id` kolone već postoje pa se koriste.
+- Bodovi se pišu preko `supabaseAdmin` (webhook nema korisničku sesiju).
 
 ## Što NE radim
-- Ne dodajem Stripe/Paddle/kartice.
-- Ne dirati postojeći IBAN tok na `/pretplata` (osim male rečenice).
-- Ne brišem postojeće tablice ni planove.
+- Ne radim vlastitu formu za broj kartice/CVC — to je zabranjeno bez PCI certifikacije; unos ide na Stripe Checkout.
+- Ne diram postojeći IBAN tok ni admin odobravanje.
+- Ne mijenjam generiranje stranica ni potrošnju bodova.
