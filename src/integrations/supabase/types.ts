@@ -143,6 +143,24 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_events: {
+        Row: {
+          created_at: string
+          id: string
+          type: string | null
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          type?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          type?: string | null
+        }
+        Relationships: []
+      }
       subscription_plans: {
         Row: {
           active: boolean
