@@ -3,6 +3,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
+const JSON_HEADERS = {
+  "content-type": "application/json",
+  "access-control-allow-origin": "*",
+  "access-control-allow-headers": "authorization, content-type",
+  "access-control-allow-methods": "POST, OPTIONS",
+};
+
 function stripAiNoise(value: string) {
   if (!value) return value;
   return value
@@ -19,6 +26,7 @@ function stripAiNoise(value: string) {
 export const Route = createFileRoute("/api/generate")({
   server: {
     handlers: {
+      OPTIONS: async () => new Response(null, { status: 204, headers: JSON_HEADERS }),
       POST: async ({ request }) => {
         const { prompt, existingHtml, attachedHtml } = (await request.json()) as {
           prompt?: string;
@@ -28,7 +36,7 @@ export const Route = createFileRoute("/api/generate")({
         if (!prompt || typeof prompt !== "string" || prompt.length > 4000) {
           return new Response(JSON.stringify({ error: "Neispravan upit." }), {
             status: 400,
-            headers: { "content-type": "application/json" },
+            headers: JSON_HEADERS,
           });
         }
 
@@ -36,7 +44,7 @@ export const Route = createFileRoute("/api/generate")({
         if (!apiKey) {
           return new Response(JSON.stringify({ error: "AI nije konfiguriran." }), {
             status: 500,
-            headers: { "content-type": "application/json" },
+            headers: JSON_HEADERS,
           });
         }
 
@@ -46,7 +54,7 @@ export const Route = createFileRoute("/api/generate")({
         if (!token) {
           return new Response(JSON.stringify({ error: "Nisi prijavljen." }), {
             status: 401,
-            headers: { "content-type": "application/json" },
+            headers: JSON_HEADERS,
           });
         }
         const sb = createClient(
@@ -59,7 +67,7 @@ export const Route = createFileRoute("/api/generate")({
         if (!userId) {
           return new Response(JSON.stringify({ error: "Sesija nije važeća." }), {
             status: 401,
-            headers: { "content-type": "application/json" },
+            headers: JSON_HEADERS,
           });
         }
 
@@ -71,7 +79,7 @@ export const Route = createFileRoute("/api/generate")({
         if (settings?.enabled === false) {
           return new Response(JSON.stringify({ error: "Studio je trenutno ugašen." }), {
             status: 403,
-            headers: { "content-type": "application/json" },
+            headers: JSON_HEADERS,
           });
         }
 
@@ -92,7 +100,7 @@ export const Route = createFileRoute("/api/generate")({
         if (!isFree && currentBalance < cost) {
           return new Response(JSON.stringify({ error: "Nemaš dovoljno bodova.", balance: currentBalance, cost }), {
             status: 402,
-            headers: { "content-type": "application/json" },
+            headers: JSON_HEADERS,
           });
         }
 
@@ -152,20 +160,20 @@ export const Route = createFileRoute("/api/generate")({
         if (res.status === 429) {
           return new Response(JSON.stringify({ error: "Previše zahtjeva, pokušaj kasnije." }), {
             status: 429,
-            headers: { "content-type": "application/json" },
+            headers: JSON_HEADERS,
           });
         }
         if (res.status === 402) {
           return new Response(JSON.stringify({ error: "AI krediti su iscrpljeni." }), {
             status: 402,
-            headers: { "content-type": "application/json" },
+            headers: JSON_HEADERS,
           });
         }
         if (!res.ok) {
           const text = await res.text();
           return new Response(JSON.stringify({ error: `AI greška: ${text.slice(0, 200)}` }), {
             status: 500,
-            headers: { "content-type": "application/json" },
+            headers: JSON_HEADERS,
           });
         }
 
@@ -211,7 +219,7 @@ export const Route = createFileRoute("/api/generate")({
 
         return new Response(
           JSON.stringify({ message, html, needsInfo, balance: nextBalance, cost }),
-          { headers: { "content-type": "application/json" } }
+          { headers: JSON_HEADERS }
         );
       },
     },
