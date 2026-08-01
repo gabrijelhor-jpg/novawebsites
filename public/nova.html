@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nova — samostalna verzija</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: ui-sans-serif, system-ui, "Segoe UI", sans-serif; background:#0b0b0f; color:#f2f2f5; }
+  header { display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid #23232c; }
+  header h1 { font-size:18px; margin:0; letter-spacing:-.02em; }
+  header .who { margin-left:auto; font-size:13px; color:#a0a0ae; }
+  main { display:grid; grid-template-columns: 380px 1fr; height: calc(100vh - 57px); }
+  @media (max-width: 880px){ main { grid-template-columns:1fr; grid-template-rows:auto 1fr; height:auto; } }
+  .panel { border-right:1px solid #23232c; padding:16px; display:flex; flex-direction:column; gap:12px; overflow:auto; }
+  input, textarea, button, select { font:inherit; }
+  input, textarea { width:100%; background:#131319; border:1px solid #2b2b36; color:#f2f2f5; border-radius:10px; padding:10px 12px; }
+  textarea { min-height:110px; resize:vertical; }
+  button { background:#f2f2f5; color:#0b0b0f; border:0; border-radius:10px; padding:10px 14px; font-weight:600; cursor:pointer; }
+  button.ghost { background:transparent; color:#f2f2f5; border:1px solid #2b2b36; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .row { display:flex; gap:8px; }
+  .row > * { flex:1; }
+  .msg { font-size:13px; line-height:1.5; background:#131319; border:1px solid #23232c; border-radius:10px; padding:10px 12px; white-space:pre-wrap; }
+  .err { border-color:#5c2330; background:#1d1015; color:#ffb4c0; }
+  iframe { width:100%; height:100%; min-height:60vh; border:0; background:#fff; }
+  label { font-size:12px; color:#a0a0ae; }
+  .hide { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Nova · samostalni klijent</h1>
+  <div class="who" id="who">nisi prijavljen</div>
+</header>
+
+<main>
+  <section class="panel">
+    <div id="authBox">
+      <label>Email</label>
+      <input id="email" type="email" autocomplete="email" />
+      <label>Lozinka</label>
+      <input id="password" type="password" autocomplete="current-password" />
+      <div class="row" style="margin-top:10px">
+        <button id="loginBtn">Prijava</button>
+        <button id="signupBtn" class="ghost">Registracija</button>
+      </div>
+    </div>
+
+    <div id="appBox" class="hide">
+      <label>Što da napravim?</label>
+      <textarea id="prompt" placeholder="npr. Napravi landing stranicu za pekarnicu s galerijom i kontakt formom"></textarea>
+      <div class="row">
+        <button id="genBtn">Generiraj</button>
+        <button id="dlBtn" class="ghost" disabled>Preuzmi HTML</button>
+      </div>
+      <div class="row">
+        <button id="logoutBtn" class="ghost">Odjava</button>
+      </div>
+    </div>
+
+    <div id="status" class="msg hide"></div>
+  </section>
+
+  <section>
+    <iframe id="preview" sandbox="allow-scripts allow-same-origin allow-forms allow-modals"></iframe>
+  </section>
+</main>
+
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// Ako datoteku otvaraš lokalno (dvoklik), API ide na objavljenu Nova stranicu.
+const API_BASE = location.protocol.startsWith("http") ? location.origin : "https://novawebsites.lovable.app";
+
+const supabase = createClient(
+  "https://vfraayrityczbbfqojru.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmcmFheXJpdHljemJiZnFvanJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMzg3MDIsImV4cCI6MjA5MzkxNDcwMn0.Rybo6iEu5GbUi5dMCw0mpVvuw5QUtSHajCyzLRHMUII"
+);
+
+const $ = (id) => document.getElementById(id);
+let currentHtml = "";
+
+function say(text, isError = false) {
+  const el = $("status");
+  el.textContent = text;
+  el.className = "msg" + (isError ? " err" : "");
+  el.classList.toggle("hide", !text);
+}
+
+async function refresh() {
+  const { data } = await supabase.auth.getSession();
+  const user = data.session?.user;
+  $("who").textContent = user ? user.email : "nisi prijavljen";
+  $("authBox").classList.toggle("hide", !!user);
+  $("appBox").classList.toggle("hide", !user);
+}
+
+$("loginBtn").onclick = async () => {
+  const { error } = await supabase.auth.signInWithPassword({ email: $("email").value.trim(), password: $("password").value });
+  error ? say(error.message, true) : (say(""), refresh());
+};
+$("signupBtn").onclick = async () => {
+  const { error } = await supabase.auth.signUp({ email: $("email").value.trim(), password: $("password").value });
+  error ? say(error.message, true) : (say("Račun kreiran. Prijavi se."), refresh());
+};
+$("logoutBtn").onclick = async () => { await supabase.auth.signOut(); currentHtml = ""; $("preview").srcdoc = ""; refresh(); };
+
+$("genBtn").onclick = async () => {
+  const prompt = $("prompt").value.trim();
+  if (!prompt) return say("Upiši što želiš.", true);
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return say("Sesija je istekla, prijavi se ponovno.", true);
+
+  $("genBtn").disabled = true;
+  say("Radim na tome…");
+  try {
+    const res = await fetch(`${API_BASE}/api/generate`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ prompt, existingHtml: currentHtml || undefined }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Greška.");
+    if (json.html) {
+      currentHtml = json.html;
+      $("preview").srcdoc = json.html;
+      $("dlBtn").disabled = false;
+    }
+    say(json.needsInfo || json.message || "Gotovo!");
+  } catch (e) {
+    say(e.message, true);
+  } finally {
+    $("genBtn").disabled = false;
+  }
+};
+
+$("dlBtn").onclick = () => {
+  const blob = new Blob([currentHtml], { type: "text/html" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "stranica.html";
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+supabase.auth.onAuthStateChange(() => refresh());
+refresh();
+</script>
+</body>
+</html>
