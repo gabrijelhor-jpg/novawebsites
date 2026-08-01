@@ -103,7 +103,7 @@ function Index() {
         <div className="max-w-5xl mx-auto px-6 pt-24 pb-32 text-center">
           <div className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-card border border-border shadow-soft mb-8">
             <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-            <span className="text-muted-foreground">Pokrenuto Lovable AI-em · Brzina koju ćeš osjetiti</span>
+            <span className="text-muted-foreground">Brzina koju ćeš osjetiti</span>
           </div>
 
           <h1 className="text-5xl md:text-7xl lg:text-8xl leading-[1.05] mb-8">
